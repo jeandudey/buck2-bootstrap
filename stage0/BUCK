@@ -3,6 +3,8 @@
 
 load(
     ":defs.bzl",
+    "ANSWERS",
+    "ANSWERS_PREFIX",
     "BLOOD_ELF_SOURCES",
     "BOOTSTRAP_C",
     "ELF_HEADER",
@@ -24,6 +26,7 @@ load(
     "bootstrap_m0_program",
     "bootstrap_m1_program",
     "bootstrap_m2_mesoplanet_compile",
+    "bootstrap_sha256_check",
     "bootstrap_source_tree",
     "bootstrap_tools",
     "cpu_select",
@@ -297,4 +300,16 @@ bootstrap_tools(
         for name, source in MESCC_TOOLS_EXTRA.items()
     },
     visibility = ["PUBLIC"],
+)
+
+# Checks the binaries against the hashes stage0-posix publishes for them. It can
+# only run once sha256sum itself is built, so everything below it, seed
+# included, is verified after the fact.
+bootstrap_sha256_check(
+    name = "check",
+    answers = ANSWERS,
+    prefix = ANSWERS_PREFIX,
+    replace = ":replace_stage0",
+    sha256sum = ":sha256sum_stage0",
+    tools = ":bin",
 )

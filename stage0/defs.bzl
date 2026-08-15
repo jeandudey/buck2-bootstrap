@@ -253,6 +253,12 @@ M2_PLANET_SOURCES = M2LIBC_SOURCES + M2LIBC_STDIO + [
     "src/M2-Planet/cc.c",
 ]
 
+# The hashes stage0-posix publishes for its finished binaries, and the directory
+# prefix they are listed under.
+ANSWERS = _path("src/{arch}.answers", _M2LIBC_ARCHS)
+
+ANSWERS_PREFIX = _path("{arch}/bin/", _STAGE0_ARCHS)
+
 # The programs mescc-tools-extra ships, as target name to source name. They are
 # all built the same way, by M2-Mesoplanet from a single C file.
 MESCC_TOOLS_EXTRA = {
@@ -552,6 +558,55 @@ bootstrap_m2_mesoplanet_compile = rule(
         "tools": attrs.exec_dep(),
         "architecture": attrs.string(),
         "operating_system": attrs.string(default = "Linux"),
+    },
+)
+
+def _sha256_check_impl(ctx: AnalysisContext) -> list[Provider]:
+    tools = ctx.attrs.tools[DefaultInfo].default_outputs[0]
+
+    # Upstream lists its binaries as "<arch>/bin/<tool>", point those at ours.
+    answers = ctx.actions.declare_output(ctx.label.name + ".answers")
+    ctx.actions.run(
+        cmd_args(
+            ctx.attrs.replace[RunInfo],
+            "--file",
+            ctx.attrs.answers,
+            "--match-on",
+            ctx.attrs.prefix,
+            "--replace-with",
+            cmd_args(tools, format = "{}/"),
+            "--output",
+            answers.as_output(),
+        ),
+        category = "bootstrap_replace",
+        identifier = ctx.label.name,
+    )
+
+    # sha256sum exits non-zero once a hash does not match. Its --output is empty
+    # in check mode and only gives the action something to produce.
+    out = ctx.actions.declare_output(ctx.label.name)
+    ctx.actions.run(
+        cmd_args(
+            ctx.attrs.sha256sum[RunInfo],
+            "--output",
+            out.as_output(),
+            "--check",
+            answers,
+            hidden = [tools],
+        ),
+        category = "bootstrap_sha256sum",
+        identifier = ctx.label.name,
+    )
+    return [DefaultInfo(default_output = out)]
+
+bootstrap_sha256_check = rule(
+    impl = _sha256_check_impl,
+    attrs = {
+        "answers": attrs.source(),
+        "prefix": attrs.string(),
+        "tools": attrs.dep(),
+        "replace": attrs.exec_dep(providers = [RunInfo]),
+        "sha256sum": attrs.exec_dep(providers = [RunInfo]),
     },
 )
 
