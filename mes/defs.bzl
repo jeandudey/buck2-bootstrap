@@ -1,6 +1,12 @@
 # SPDX-FileCopyrightText: 2026 Jean-Pierre De Jesus DIAZ <me@jeandudey.tech>
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
+load(
+    "//stage0:defs.bzl",
+    "bootstrap_concat_file",
+    "bootstrap_m1_assemble",
+)
+
 MES_VERSION = "0.27.1"
 
 # The base address kaem.run links mes-m2 at, the same on every architecture.
@@ -102,6 +108,43 @@ LIBC_M1 = (
 )
 
 ELF_HEADER = _mes_paths("lib/m2/{cpu}/ELF-{cpu}.hex2")
+
+# What MesCC links with: the ELF header and footer of its own C library, picked
+# by word size rather than by CPU.
+ELF_LINK_HEADER = mes_cpu_select(
+    x86 = ["src/lib/linux/x86-mes/elf32-header.hex2"],
+    amd64 = ["src/lib/linux/x86_64-mes/elf64-header.hex2"],
+    riscv64 = ["src/lib/linux/riscv64-mes/elf64-header.hex2"],
+)
+
+ELF_LINK_FOOTER = mes_cpu_select(
+    x86 = ["src/lib/linux/x86-mes/elf32-footer-single-main.hex2"],
+    amd64 = ["src/lib/linux/x86_64-mes/elf64-footer-single-main.hex2"],
+    riscv64 = ["src/lib/linux/riscv64-mes/elf64-footer-single-main.hex2"],
+)
+
+# configure.sh copies the CPU's kernel headers into the build tree as "arch",
+# next to the config.h it generates. Both are searched before the sources.
+CONFIG_INCLUDE = mes_cpu_select(
+    x86 = {
+        "arch/kernel-stat.h": "src/include/linux/x86/kernel-stat.h",
+        "arch/signal.h": "src/include/linux/x86/signal.h",
+        "arch/syscall.h": "src/include/linux/x86/syscall.h",
+        "mes/config.h": ":config.h",
+    },
+    amd64 = {
+        "arch/kernel-stat.h": "src/include/linux/x86_64/kernel-stat.h",
+        "arch/signal.h": "src/include/linux/x86_64/signal.h",
+        "arch/syscall.h": "src/include/linux/x86_64/syscall.h",
+        "mes/config.h": ":config.h",
+    },
+    riscv64 = {
+        "arch/kernel-stat.h": "src/include/linux/riscv64/kernel-stat.h",
+        "arch/signal.h": "src/include/linux/riscv64/signal.h",
+        "arch/syscall.h": "src/include/linux/riscv64/syscall.h",
+        "mes/config.h": ":config.h",
+    },
+)
 
 # The sources kaem.run hands to M2-Planet, in its order. include/mes/config.h
 # comes first but is generated, see mes_config_h.
@@ -219,6 +262,293 @@ SOURCES = (
     ]
 )
 
+# The Mes C library and Mes itself, as MesCC compiles them: every object once,
+# keyed by the name upstream's build gives it, and the lists each archive is
+# made of. Generated from build-aux/configure-lib.sh for a Linux, Mes libc,
+# MesCC configuration; the lists are the same on every CPU Mes supports.
+MESCC_SOURCES = {
+    "lib-mes-__init_io": "src/lib/mes/__init_io.c",
+    "lib-mes-eputs": "src/lib/mes/eputs.c",
+    "lib-mes-oputs": "src/lib/mes/oputs.c",
+    "lib-mes-globals": "src/lib/mes/globals.c",
+    "lib-stdlib-exit": "src/lib/stdlib/exit.c",
+    "lib-linux-mes-mescc-_exit": _mes_path("lib/linux/{cpu}-mes-mescc/_exit.c"),
+    "lib-linux-mes-mescc-_write": _mes_path("lib/linux/{cpu}-mes-mescc/_write.c"),
+    "lib-stdlib-puts": "src/lib/stdlib/puts.c",
+    "lib-string-strlen": "src/lib/string/strlen.c",
+    "lib-mes-write": "src/lib/mes/write.c",
+    "lib-linux-mes-mescc-syscall-internal": _mes_path("lib/linux/{cpu}-mes-mescc/syscall-internal.c"),
+    "lib-ctype-isnumber": "src/lib/ctype/isnumber.c",
+    "lib-mes-abtol": "src/lib/mes/abtol.c",
+    "lib-mes-cast": "src/lib/mes/cast.c",
+    "lib-mes-eputc": "src/lib/mes/eputc.c",
+    "lib-mes-fdgetc": "src/lib/mes/fdgetc.c",
+    "lib-mes-fdputc": "src/lib/mes/fdputc.c",
+    "lib-mes-fdputs": "src/lib/mes/fdputs.c",
+    "lib-mes-fdungetc": "src/lib/mes/fdungetc.c",
+    "lib-mes-itoa": "src/lib/mes/itoa.c",
+    "lib-mes-ltoa": "src/lib/mes/ltoa.c",
+    "lib-mes-ltoab": "src/lib/mes/ltoab.c",
+    "lib-mes-mes_open": "src/lib/mes/mes_open.c",
+    "lib-mes-ntoab": "src/lib/mes/ntoab.c",
+    "lib-mes-oputc": "src/lib/mes/oputc.c",
+    "lib-mes-ultoa": "src/lib/mes/ultoa.c",
+    "lib-mes-utoa": "src/lib/mes/utoa.c",
+    "lib-stub-__raise": "src/lib/stub/__raise.c",
+    "lib-ctype-isdigit": "src/lib/ctype/isdigit.c",
+    "lib-ctype-isspace": "src/lib/ctype/isspace.c",
+    "lib-ctype-isxdigit": "src/lib/ctype/isxdigit.c",
+    "lib-mes-assert_msg": "src/lib/mes/assert_msg.c",
+    "lib-posix-write": "src/lib/posix/write.c",
+    "lib-stdlib-atoi": "src/lib/stdlib/atoi.c",
+    "lib-linux-lseek": "src/lib/linux/lseek.c",
+    "lib-dirent-__getdirentries": "src/lib/dirent/__getdirentries.c",
+    "lib-dirent-closedir": "src/lib/dirent/closedir.c",
+    "lib-dirent-opendir": "src/lib/dirent/opendir.c",
+    "lib-mes-__assert_fail": "src/lib/mes/__assert_fail.c",
+    "lib-mes-__buffered_read": "src/lib/mes/__buffered_read.c",
+    "lib-mes-__mes_debug": "src/lib/mes/__mes_debug.c",
+    "lib-posix-execv": "src/lib/posix/execv.c",
+    "lib-posix-getcwd": "src/lib/posix/getcwd.c",
+    "lib-posix-getenv": "src/lib/posix/getenv.c",
+    "lib-posix-isatty": "src/lib/posix/isatty.c",
+    "lib-posix-open": "src/lib/posix/open.c",
+    "lib-posix-buffered-read": "src/lib/posix/buffered-read.c",
+    "lib-posix-setenv": "src/lib/posix/setenv.c",
+    "lib-posix-wait": "src/lib/posix/wait.c",
+    "lib-stdio-fgetc": "src/lib/stdio/fgetc.c",
+    "lib-stdio-fputc": "src/lib/stdio/fputc.c",
+    "lib-stdio-fputs": "src/lib/stdio/fputs.c",
+    "lib-stdio-getc": "src/lib/stdio/getc.c",
+    "lib-stdio-getchar": "src/lib/stdio/getchar.c",
+    "lib-stdio-putc": "src/lib/stdio/putc.c",
+    "lib-stdio-putchar": "src/lib/stdio/putchar.c",
+    "lib-stdio-ungetc": "src/lib/stdio/ungetc.c",
+    "lib-stdlib-calloc": "src/lib/stdlib/calloc.c",
+    "lib-stdlib-free": "src/lib/stdlib/free.c",
+    "lib-stdlib-realloc": "src/lib/stdlib/realloc.c",
+    "lib-string-memchr": "src/lib/string/memchr.c",
+    "lib-string-memcmp": "src/lib/string/memcmp.c",
+    "lib-string-memcpy": "src/lib/string/memcpy.c",
+    "lib-string-memmove": "src/lib/string/memmove.c",
+    "lib-string-memset": "src/lib/string/memset.c",
+    "lib-string-strcmp": "src/lib/string/strcmp.c",
+    "lib-string-strcpy": "src/lib/string/strcpy.c",
+    "lib-string-strncmp": "src/lib/string/strncmp.c",
+    "lib-posix-raise": "src/lib/posix/raise.c",
+    "lib-linux-access": "src/lib/linux/access.c",
+    "lib-linux-brk": "src/lib/linux/brk.c",
+    "lib-linux-chdir": "src/lib/linux/chdir.c",
+    "lib-linux-chmod": "src/lib/linux/chmod.c",
+    "lib-linux-clock_gettime": "src/lib/linux/clock_gettime.c",
+    "lib-linux-close": "src/lib/linux/close.c",
+    "lib-linux-dup": "src/lib/linux/dup.c",
+    "lib-linux-dup2": "src/lib/linux/dup2.c",
+    "lib-linux-execve": "src/lib/linux/execve.c",
+    "lib-linux-fcntl": "src/lib/linux/fcntl.c",
+    "lib-linux-fork": "src/lib/linux/fork.c",
+    "lib-linux-fstat": "src/lib/linux/fstat.c",
+    "lib-linux-fsync": "src/lib/linux/fsync.c",
+    "lib-linux-_getcwd": "src/lib/linux/_getcwd.c",
+    "lib-linux-getdents": "src/lib/linux/getdents.c",
+    "lib-linux-gettimeofday": "src/lib/linux/gettimeofday.c",
+    "lib-linux-ioctl3": "src/lib/linux/ioctl3.c",
+    "lib-linux-link": "src/lib/linux/link.c",
+    "lib-linux-lstat": "src/lib/linux/lstat.c",
+    "lib-linux-_open3": "src/lib/linux/_open3.c",
+    "lib-linux-malloc": "src/lib/linux/malloc.c",
+    "lib-linux-mkdir": "src/lib/linux/mkdir.c",
+    "lib-linux-nanosleep": "src/lib/linux/nanosleep.c",
+    "lib-linux-pipe": "src/lib/linux/pipe.c",
+    "lib-linux-_read": "src/lib/linux/_read.c",
+    "lib-linux-readdir": "src/lib/linux/readdir.c",
+    "lib-linux-rename": "src/lib/linux/rename.c",
+    "lib-linux-rmdir": "src/lib/linux/rmdir.c",
+    "lib-linux-stat": "src/lib/linux/stat.c",
+    "lib-linux-symlink": "src/lib/linux/symlink.c",
+    "lib-linux-time": "src/lib/linux/time.c",
+    "lib-linux-umask": "src/lib/linux/umask.c",
+    "lib-linux-uname": "src/lib/linux/uname.c",
+    "lib-linux-unlink": "src/lib/linux/unlink.c",
+    "lib-linux-utimensat": "src/lib/linux/utimensat.c",
+    "lib-linux-wait4": "src/lib/linux/wait4.c",
+    "lib-linux-waitpid": "src/lib/linux/waitpid.c",
+    "lib-linux-mes-mescc-syscall": _mes_path("lib/linux/{cpu}-mes-mescc/syscall.c"),
+    "lib-linux-getpid": "src/lib/linux/getpid.c",
+    "lib-linux-kill": "src/lib/linux/kill.c",
+    "src-builtins": "src/src/builtins.c",
+    "src-cc": "src/src/cc.c",
+    "src-core": "src/src/core.c",
+    "src-display": "src/src/display.c",
+    "src-eval-apply": "src/src/eval-apply.c",
+    "src-gc": "src/src/gc.c",
+    "src-globals": "src/src/globals.c",
+    "src-hash": "src/src/hash.c",
+    "src-lib": "src/src/lib.c",
+    "src-math": "src/src/math.c",
+    "src-mes": "src/src/mes.c",
+    "src-module": "src/src/module.c",
+    "src-posix": "src/src/posix.c",
+    "src-reader": "src/src/reader.c",
+    "src-stack": "src/src/stack.c",
+    "src-string": "src/src/string.c",
+    "src-struct": "src/src/struct.c",
+    "src-symbol": "src/src/symbol.c",
+    "src-variable": "src/src/variable.c",
+    "src-vector": "src/src/vector.c",
+}
+
+LIBC_MINI_OBJECTS = [
+    "lib-mes-__init_io",
+    "lib-mes-eputs",
+    "lib-mes-oputs",
+    "lib-mes-globals",
+    "lib-stdlib-exit",
+    "lib-linux-mes-mescc-_exit",
+    "lib-linux-mes-mescc-_write",
+    "lib-stdlib-puts",
+    "lib-string-strlen",
+    "lib-mes-write",
+]
+
+LIBMESCC_OBJECTS = [
+    "lib-mes-globals",
+    "lib-linux-mes-mescc-syscall-internal",
+]
+
+LIBC_OBJECTS = [
+    "lib-mes-__init_io",
+    "lib-mes-eputs",
+    "lib-mes-oputs",
+    "lib-mes-globals",
+    "lib-stdlib-exit",
+    "lib-linux-mes-mescc-_exit",
+    "lib-linux-mes-mescc-_write",
+    "lib-stdlib-puts",
+    "lib-string-strlen",
+    "lib-ctype-isnumber",
+    "lib-mes-abtol",
+    "lib-mes-cast",
+    "lib-mes-eputc",
+    "lib-mes-fdgetc",
+    "lib-mes-fdputc",
+    "lib-mes-fdputs",
+    "lib-mes-fdungetc",
+    "lib-mes-itoa",
+    "lib-mes-ltoa",
+    "lib-mes-ltoab",
+    "lib-mes-mes_open",
+    "lib-mes-ntoab",
+    "lib-mes-oputc",
+    "lib-mes-ultoa",
+    "lib-mes-utoa",
+    "lib-stub-__raise",
+    "lib-ctype-isdigit",
+    "lib-ctype-isspace",
+    "lib-ctype-isxdigit",
+    "lib-mes-assert_msg",
+    "lib-posix-write",
+    "lib-stdlib-atoi",
+    "lib-linux-lseek",
+    "lib-dirent-__getdirentries",
+    "lib-dirent-closedir",
+    "lib-dirent-opendir",
+    "lib-mes-__assert_fail",
+    "lib-mes-__buffered_read",
+    "lib-mes-__mes_debug",
+    "lib-posix-execv",
+    "lib-posix-getcwd",
+    "lib-posix-getenv",
+    "lib-posix-isatty",
+    "lib-posix-open",
+    "lib-posix-buffered-read",
+    "lib-posix-setenv",
+    "lib-posix-wait",
+    "lib-stdio-fgetc",
+    "lib-stdio-fputc",
+    "lib-stdio-fputs",
+    "lib-stdio-getc",
+    "lib-stdio-getchar",
+    "lib-stdio-putc",
+    "lib-stdio-putchar",
+    "lib-stdio-ungetc",
+    "lib-stdlib-calloc",
+    "lib-stdlib-free",
+    "lib-stdlib-realloc",
+    "lib-string-memchr",
+    "lib-string-memcmp",
+    "lib-string-memcpy",
+    "lib-string-memmove",
+    "lib-string-memset",
+    "lib-string-strcmp",
+    "lib-string-strcpy",
+    "lib-string-strncmp",
+    "lib-posix-raise",
+    "lib-linux-access",
+    "lib-linux-brk",
+    "lib-linux-chdir",
+    "lib-linux-chmod",
+    "lib-linux-clock_gettime",
+    "lib-linux-close",
+    "lib-linux-dup",
+    "lib-linux-dup2",
+    "lib-linux-execve",
+    "lib-linux-fcntl",
+    "lib-linux-fork",
+    "lib-linux-fstat",
+    "lib-linux-fsync",
+    "lib-linux-_getcwd",
+    "lib-linux-getdents",
+    "lib-linux-gettimeofday",
+    "lib-linux-ioctl3",
+    "lib-linux-link",
+    "lib-linux-lstat",
+    "lib-linux-_open3",
+    "lib-linux-malloc",
+    "lib-linux-mkdir",
+    "lib-linux-nanosleep",
+    "lib-linux-pipe",
+    "lib-linux-_read",
+    "lib-linux-readdir",
+    "lib-linux-rename",
+    "lib-linux-rmdir",
+    "lib-linux-stat",
+    "lib-linux-symlink",
+    "lib-linux-time",
+    "lib-linux-umask",
+    "lib-linux-uname",
+    "lib-linux-unlink",
+    "lib-linux-utimensat",
+    "lib-linux-wait4",
+    "lib-linux-waitpid",
+    "lib-linux-mes-mescc-syscall",
+    "lib-linux-getpid",
+    "lib-linux-kill",
+]
+
+MES_OBJECTS = [
+    "src-builtins",
+    "src-cc",
+    "src-core",
+    "src-display",
+    "src-eval-apply",
+    "src-gc",
+    "src-globals",
+    "src-hash",
+    "src-lib",
+    "src-math",
+    "src-mes",
+    "src-module",
+    "src-posix",
+    "src-reader",
+    "src-stack",
+    "src-string",
+    "src-struct",
+    "src-symbol",
+    "src-variable",
+    "src-vector",
+]
+
 # cmd: runs mescc under Mes, arguments still to follow.
 # env: what Mes and mescc need in the environment.
 # includes: the -I flags for the Mes C library headers.
@@ -281,7 +611,15 @@ def _mescc_compile_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Stop at the assembly MesCC emits: M1 and hex2 are targets of their own
     # rather than subprocesses of the compiler.
-    cmd = cmd_args(mescc.cmd, "-S", "-o", out.as_output())
+    cmd = cmd_args(
+        mescc.cmd,
+        "-S",
+        "-o",
+        out.as_output(),
+        # MesCC searches the directory of the source too, for the few files
+        # that include a sibling.
+        hidden = ctx.attrs.headers,
+    )
     for define in ctx.attrs.defines:
         cmd.add("-D", define)
     cmd.add(mescc.includes, ctx.attrs.src)
@@ -299,9 +637,61 @@ mescc_compile = rule(
     attrs = {
         "mescc": attrs.exec_dep(providers = [MesccInfo]),
         "src": attrs.source(),
+        "headers": attrs.list(attrs.source(), default = []),
         "defines": attrs.list(attrs.string(), default = ["HAVE_CONFIG_H=1"]),
     },
 )
+
+def mescc_object(name, mescc, assembler, src, headers = [], defines = None):
+    """Compiles one C file the way MesCC does, in two visible steps.
+
+    Defines ":<name>.s" with the assembly and ":<name>.o" with what M1 makes of
+    it. MesCC would run M1 itself; here it stops at the assembly.
+    """
+    mescc_compile(
+        name = name + ".s",
+        mescc = mescc,
+        src = src,
+        headers = headers,
+        defines = defines,
+        target_compatible_with = COMPATIBLE_WITH,
+    )
+    bootstrap_m1_assemble(
+        name = name + ".o",
+        assembler = assembler,
+        architecture = ARCHITECTURE,
+        srcs = ARCH_M1 + [":" + name + ".s"],
+        target_compatible_with = COMPATIBLE_WITH,
+    )
+
+def mescc_objects(mescc, assembler, sources, headers = []):
+    """Compiles a set of objects, one target per source."""
+    for name, src in sources.items():
+        mescc_object(
+            name = name,
+            mescc = mescc,
+            assembler = assembler,
+            src = src,
+            headers = headers,
+        )
+
+def mescc_archive(name, catm, objects):
+    """An archive as mesar makes one: the objects concatenated, no index.
+
+    Defines ":<name>.a" for the linker and ":<name>.s" for blood-elf.
+    """
+    bootstrap_concat_file(
+        name = name + ".a",
+        catm = catm,
+        srcs = [":" + o + ".o" for o in objects],
+        target_compatible_with = COMPATIBLE_WITH,
+    )
+    bootstrap_concat_file(
+        name = name + ".s",
+        catm = catm,
+        srcs = [":" + o + ".s" for o in objects],
+        target_compatible_with = COMPATIBLE_WITH,
+    )
 
 def _config_h_impl(ctx: AnalysisContext) -> list[Provider]:
     # What configure.sh writes for a build that does not use the system libc.
