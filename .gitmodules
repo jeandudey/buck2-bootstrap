@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Jean-Pierre De Jesus DIAZ <me@jeandudey.tech>
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
 [submodule "stage0/src"]
 	path = stage0/src
 	url = https://github.com/oriansj/stage0-posix
