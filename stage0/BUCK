@@ -197,6 +197,7 @@ bootstrap_m1_program(
     blood_elf = ":blood_elf_stage0",
     linker = ":hex2_stage1",
     srcs = M1_SOURCES,
+    visibility = ["PUBLIC"],
 )
 
 bootstrap_m1_program(
@@ -206,6 +207,7 @@ bootstrap_m1_program(
     blood_elf = ":blood_elf_stage0",
     linker = ":hex2_stage1",
     srcs = HEX2_SOURCES,
+    visibility = ["PUBLIC"],
 )
 
 bootstrap_m1_program(
@@ -234,6 +236,7 @@ bootstrap_m1_program(
     blood_elf = ":blood_elf_stage0",
     linker = ":hex2_stage2",
     srcs = BLOOD_ELF_SOURCES,
+    visibility = ["PUBLIC"],
 )
 
 bootstrap_m1_program(
@@ -252,6 +255,7 @@ bootstrap_m1_program(
     blood_elf = ":blood_elf_stage1",
     linker = ":hex2_stage2",
     srcs = M2_PLANET_SOURCES,
+    visibility = ["PUBLIC"],
 )
 
 bootstrap_source_tree(

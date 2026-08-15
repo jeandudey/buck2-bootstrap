@@ -370,6 +370,8 @@ bootstrap_cc_compile = rule(
 def _m2_compile_impl(ctx: AnalysisContext) -> list[Provider]:
     out = ctx.actions.declare_output(ctx.label.name)
     cmd = cmd_args(ctx.attrs.compiler[RunInfo], "--architecture", ctx.attrs.architecture)
+    for define in ctx.attrs.defines:
+        cmd.add("-D", define)
     for src in ctx.attrs.srcs:
         cmd.add("-f", src)
     if ctx.attrs.bootstrap_mode:
@@ -390,6 +392,7 @@ bootstrap_m2_compile = rule(
         "compiler": attrs.exec_dep(providers = [RunInfo]),
         "srcs": attrs.list(attrs.source()),
         "architecture": attrs.string(),
+        "defines": attrs.list(attrs.string(), default = []),
         "bootstrap_mode": attrs.bool(default = False),
         "debug": attrs.bool(default = False),
     },
@@ -709,7 +712,8 @@ def bootstrap_m1_program(
         srcs,
         catm = None,
         hex = None,
-        linker = None):
+        linker = None,
+        visibility = None):
     """M2-Planet program assembled by M1 and turned into a binary.
 
     "assembler" is an M1. The binary comes either from "linker", a hex2 able to
@@ -740,6 +744,7 @@ def bootstrap_m1_program(
             architecture = M2_ARCHITECTURE,
             base_address = BASE_ADDRESS,
             srcs = M2LIBC_ELF_HEADER_DEBUG + [":" + obj],
+            visibility = visibility,
         )
     else:
         bootstrap_hex2_image(
