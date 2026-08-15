@@ -7,3 +7,6 @@
 [submodule "mes/src"]
 	path = mes/src
 	url = https://git.savannah.gnu.org/git/mes.git
+[submodule "nyacc/src"]
+	path = nyacc/src
+	url = https://git.savannah.nongnu.org/git/nyacc.git

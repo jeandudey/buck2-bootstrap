@@ -284,6 +284,7 @@ bootstrap_tools(
         m2libc = ":m2libc",
         src = "src/mescc-tools-extra/{}.c".format(source),
         tools = ":m2_mesoplanet_tools",
+        visibility = ["PUBLIC"],
     )
     for name, source in MESCC_TOOLS_EXTRA.items()
 ]

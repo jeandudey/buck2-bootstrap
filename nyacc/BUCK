@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: 2026 Jean-Pierre De Jesus DIAZ <me@jeandudey.tech>
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+load("//stage0:defs.bzl", "bootstrap_source_tree")
+
+# The Guile modules MesCC parses C with. Mes carries two NYACC files itself and
+# expects the rest on the load path.
+bootstrap_source_tree(
+    name = "modules",
+    srcs = glob(["src/module/**"]),
+    strip_prefix = "src/module/",
+    visibility = ["PUBLIC"],
+)

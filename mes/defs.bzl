@@ -25,13 +25,54 @@ COMPATIBLE_WITH = select({
     "DEFAULT": [],
 })
 
-def _mes_paths(fmt):
+def _mes_path(fmt):
     """Per-CPU path under src, e.g. "lib/m2/{cpu}/ELF-{cpu}.hex2"."""
+    return mes_cpu_select(
+        x86 = "src/" + fmt.format(cpu = "x86"),
+        amd64 = "src/" + fmt.format(cpu = "x86_64"),
+        riscv64 = "src/" + fmt.format(cpu = "riscv64"),
+    )
+
+def _mes_paths(fmt):
+    """Like _mes_path, as a single element list for "srcs" attributes."""
     return mes_cpu_select(
         x86 = ["src/" + fmt.format(cpu = "x86")],
         amd64 = ["src/" + fmt.format(cpu = "x86_64")],
         riscv64 = ["src/" + fmt.format(cpu = "riscv64")],
     )
+
+MES_CPU = mes_cpu_select(
+    x86 = "x86",
+    amd64 = "x86_64",
+    riscv64 = "riscv64",
+)
+
+# scripts/mescc.scm.in is a configure.sh template. Only the CPU and the kernel
+# have to be substituted: the other variables are guarded so that an
+# unsubstituted value falls back to the environment.
+MESCC_SUBSTITUTIONS = mes_cpu_select(
+    x86 = {
+        "@mes_cpu@": "x86",
+        "@mes_kernel@": "linux",
+        "@VERSION@": MES_VERSION,
+    },
+    amd64 = {
+        "@mes_cpu@": "x86_64",
+        "@mes_kernel@": "linux",
+        "@VERSION@": MES_VERSION,
+    },
+    riscv64 = {
+        "@mes_cpu@": "riscv64",
+        "@mes_kernel@": "linux",
+        "@VERSION@": MES_VERSION,
+    },
+)
+
+# The C library sources start files, per CPU.
+CRT1 = _mes_path("lib/linux/{cpu}-mes-mescc/crt1.c")
+
+# The architecture macros M1 needs ahead of anything MesCC emits.
+ARCH_M1 = _mes_paths("lib/{cpu}-mes/{cpu}.M1")
 
 # What the stage0 tools are told to target, "stage0_cpu" in the kaem scripts.
 ARCHITECTURE = mes_cpu_select(
@@ -176,6 +217,90 @@ SOURCES = (
         "src/src/variable.c",
         "src/src/vector.c",
     ]
+)
+
+# cmd: runs mescc under Mes, arguments still to follow.
+# env: what Mes and mescc need in the environment.
+# includes: the -I flags for the Mes C library headers.
+MesccInfo = provider(fields = ["cmd", "env", "includes"])
+
+def _mescc_impl(ctx: AnalysisContext) -> list[Provider]:
+    prefix = ctx.attrs.mes_prefix[DefaultInfo].default_outputs[0]
+    modules = ctx.attrs.modules[DefaultInfo].default_outputs[0]
+    nyacc = ctx.attrs.nyacc[DefaultInfo].default_outputs[0]
+    includes = [dep[DefaultInfo].default_outputs[0] for dep in ctx.attrs.includes]
+
+    # MesCC is Scheme: Mes reads scripts/mescc.scm, and "--" separates Mes' own
+    # arguments from the ones mescc parses.
+    cmd = cmd_args(
+        ctx.attrs.mes[RunInfo],
+        "--no-auto-compile",
+        "-e",
+        "main",
+        ctx.attrs.script,
+        "--",
+        hidden = [prefix, modules, nyacc] + includes,
+    )
+    env = {
+        # Mes reads boot-5.scm from below MES_PREFIX.
+        "MES_PREFIX": cmd_args(prefix),
+        "GUILE_LOAD_PATH": cmd_args(
+            [cmd_args(prefix, format = "{}/mes/module"), modules, nyacc],
+            delimiter = ":",
+        ),
+        "MES_ARENA": ctx.attrs.arena,
+        "MES_MAX_ARENA": ctx.attrs.arena,
+        "MES_STACK": ctx.attrs.stack,
+    }
+    include_flags = cmd_args()
+    for include in includes:
+        include_flags.add("-I", include)
+
+    return [
+        DefaultInfo(default_output = ctx.attrs.script),
+        MesccInfo(cmd = cmd, env = env, includes = include_flags),
+    ]
+
+mescc = rule(
+    impl = _mescc_impl,
+    attrs = {
+        "mes": attrs.exec_dep(providers = [RunInfo]),
+        "script": attrs.source(),
+        "mes_prefix": attrs.dep(),
+        "modules": attrs.dep(),
+        "nyacc": attrs.dep(),
+        "includes": attrs.list(attrs.dep()),
+        "arena": attrs.string(default = "20000000"),
+        "stack": attrs.string(default = "6000000"),
+    },
+)
+
+def _mescc_compile_impl(ctx: AnalysisContext) -> list[Provider]:
+    mescc = ctx.attrs.mescc[MesccInfo]
+    out = ctx.actions.declare_output(ctx.label.name)
+
+    # Stop at the assembly MesCC emits: M1 and hex2 are targets of their own
+    # rather than subprocesses of the compiler.
+    cmd = cmd_args(mescc.cmd, "-S", "-o", out.as_output())
+    for define in ctx.attrs.defines:
+        cmd.add("-D", define)
+    cmd.add(mescc.includes, ctx.attrs.src)
+
+    ctx.actions.run(
+        cmd,
+        env = mescc.env,
+        category = "mescc",
+        identifier = ctx.label.name,
+    )
+    return [DefaultInfo(default_output = out)]
+
+mescc_compile = rule(
+    impl = _mescc_compile_impl,
+    attrs = {
+        "mescc": attrs.exec_dep(providers = [MesccInfo]),
+        "src": attrs.source(),
+        "defines": attrs.list(attrs.string(), default = ["HAVE_CONFIG_H=1"]),
+    },
 )
 
 def _config_h_impl(ctx: AnalysisContext) -> list[Provider]:

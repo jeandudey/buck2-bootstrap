@@ -495,13 +495,51 @@ def _source_tree_impl(ctx: AnalysisContext) -> list[Provider]:
         if not src.short_path.startswith(prefix):
             fail("{} is not below {}".format(src.short_path, prefix))
         files[src.short_path[len(prefix):]] = src
+    files.update(ctx.attrs.extra)
     return [DefaultInfo(default_output = ctx.actions.symlinked_dir(ctx.label.name, files))]
 
 bootstrap_source_tree = rule(
     impl = _source_tree_impl,
     attrs = {
-        "srcs": attrs.list(attrs.source()),
+        "srcs": attrs.list(attrs.source(), default = []),
         "strip_prefix": attrs.string(default = ""),
+        "extra": attrs.dict(attrs.string(), attrs.source(), default = {}),
+    },
+)
+
+def _subst_impl(ctx: AnalysisContext) -> list[Provider]:
+    src = ctx.attrs.src
+    out = None
+    substitutions = ctx.attrs.substitutions.items()
+    for i, (match, replacement) in enumerate(substitutions):
+        last = i == len(substitutions) - 1
+        out = ctx.actions.declare_output(
+            ctx.label.name if last else "{}.{}".format(ctx.label.name, i),
+        )
+        ctx.actions.run(
+            cmd_args(
+                ctx.attrs.replace[RunInfo],
+                "--file",
+                src,
+                "--match-on",
+                match,
+                "--replace-with",
+                replacement,
+                "--output",
+                out.as_output(),
+            ),
+            category = "bootstrap_replace",
+            identifier = "{}_{}".format(ctx.label.name, i),
+        )
+        src = out
+    return [DefaultInfo(default_output = out)]
+
+bootstrap_subst = rule(
+    impl = _subst_impl,
+    attrs = {
+        "src": attrs.source(),
+        "substitutions": attrs.dict(attrs.string(), attrs.string()),
+        "replace": attrs.exec_dep(providers = [RunInfo]),
     },
 )
 
