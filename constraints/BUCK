@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2026 Jean-Pierre De Jesus DIAZ <me@jeandudey.tech>
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+constraint(
+    name = "os",
+    values = [
+        "linux",
+        "macos",
+        "windows",
+    ],
+    default = "linux",
+    visibility = ["PUBLIC"],
+)
+
+constraint(
+    name = "cpu",
+    values = [
+        "aarch64",
+        "riscv64",
+        "x86_32",
+        "x86_64",
+    ],
+    default = "x86_64",
+    visibility = ["PUBLIC"],
+)

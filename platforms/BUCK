@@ -1,0 +1,49 @@
+# SPDX-FileCopyrightText: 2026 Jean-Pierre De Jesus DIAZ <me@jeandudey.tech>
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+load(
+    ":defs.bzl",
+    "execution_platforms",
+)
+
+platform(
+    name = "linux-aarch64",
+    constraint_values = [
+        "root//constraints:os[linux]",
+        "root//constraints:cpu[aarch64]",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+platform(
+    name = "linux-riscv64",
+    constraint_values = [
+        "root//constraints:os[linux]",
+        "root//constraints:cpu[riscv64]",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+platform(
+    name = "linux-x86_32",
+    constraint_values = [
+        "root//constraints:os[linux]",
+        "root//constraints:cpu[x86_32]",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+platform(
+    name = "linux-x86_64",
+    constraint_values = [
+        "root//constraints:os[linux]",
+        "root//constraints:cpu[x86_64]",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+execution_platforms(
+    name = "default",
+    platform = ":linux-x86_64",
+    visibility = ["PUBLIC"],
+)
