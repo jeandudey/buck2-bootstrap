@@ -3,205 +3,46 @@
 
 load(
     ":defs.bzl",
-    "bootstrap_blood_elf",
+    "BOOTSTRAP_C",
+    "ELF_HEADER",
+    "HEX2_SOURCES",
+    "KAEM_SOURCES",
+    "M1_SOURCES",
+    "STAGE0_DEFS_LIBC",
     "bootstrap_cc_compile",
     "bootstrap_concat_file",
-    "bootstrap_hex_prebuilt",
     "bootstrap_hex_assemble",
-    "bootstrap_hex2_link",
+    "bootstrap_hex_prebuilt",
+    "bootstrap_hex2_image",
     "bootstrap_m0_assemble",
-    "bootstrap_m1_assemble",
-    "bootstrap_m2_compile",
+    "bootstrap_m0_program",
+    "bootstrap_m1_program",
+    "cpu_select",
+    "stage0_path",
+    "stage0_paths",
 )
-
-ELF_HEADER = select({
-    "root//constraints:cpu[aarch64]": ["src/AArch64/ELF-aarch64.hex2"],
-    "root//constraints:cpu[x86_32]": ["src/x86/ELF-i386.hex2"],
-    "root//constraints:cpu[x86_64]": ["src/AMD64/ELF-amd64.hex2"],
-    "root//constraints:cpu[riscv64]": ["src/riscv64/ELF-riscv64.hex2"],
-})
-
-M2LIBC_ELF_HEADER = select({
-    "root//constraints:cpu[aarch64]": ["src/M2libc/aarch64/ELF-aarch64.hex2"],
-    "root//constraints:cpu[x86_32]": ["src/M2libc/x86/ELF-x86.hex2"],
-    "root//constraints:cpu[x86_64]": ["src/M2libc/amd64/ELF-amd64.hex2"],
-    "root//constraints:cpu[riscv64]": ["src/M2libc/riscv64/ELF-riscv64.hex2"],
-})
-
-M2LIBC_ELF_HEADER_DEBUG = select({
-    "root//constraints:cpu[aarch64]": ["src/M2libc/aarch64/ELF-aarch64-debug.hex2"],
-    "root//constraints:cpu[x86_32]": ["src/M2libc/x86/ELF-x86-debug.hex2"],
-    "root//constraints:cpu[x86_64]": ["src/M2libc/amd64/ELF-amd64-debug.hex2"],
-    "root//constraints:cpu[riscv64]": ["src/M2libc/riscv64/ELF-riscv64-debug.hex2"],
-})
-
-M2LIBC_DEFS_LIBC = select({
-    "root//constraints:cpu[aarch64]": [
-        "src/M2libc/aarch64/aarch64_defs.M1",
-        "src/M2libc/aarch64/libc-core.M1",
-    ],
-    "root//constraints:cpu[x86_32]": [
-        "src/M2libc/x86/x86_defs.M1",
-        "src/M2libc/x86/libc-core.M1",
-    ],
-    "root//constraints:cpu[x86_64]": [
-        "src/M2libc/amd64/amd64_defs.M1",
-        "src/M2libc/amd64/libc-core.M1",
-    ],
-    "root//constraints:cpu[riscv64]": [
-        "src/M2libc/riscv64/riscv64_defs.M1",
-        "src/M2libc/riscv64/libc-core.M1",
-    ],
-})
-
-BOOTSTRAP_C = select({
-    "root//constraints:cpu[aarch64]": ["src/M2libc/aarch64/linux/bootstrap.c"],
-    "root//constraints:cpu[x86_32]": ["src/M2libc/x86/linux/bootstrap.c"],
-    "root//constraints:cpu[x86_64]": ["src/M2libc/amd64/linux/bootstrap.c"],
-    "root//constraints:cpu[riscv64]": ["src/M2libc/riscv64/linux/bootstrap.c"],
-})
-
-M2_ARCHITECTURE = select({
-    "root//constraints:cpu[aarch64]": "aarch64",
-    "root//constraints:cpu[x86_32]": "x86",
-    "root//constraints:cpu[x86_64]": "amd64",
-    "root//constraints:cpu[riscv64]": "riscv64",
-})
-
-WORD_SIZE = select({
-    "root//constraints:cpu[aarch64]": "64",
-    "root//constraints:cpu[x86_32]": "32",
-    "root//constraints:cpu[x86_64]": "64",
-    "root//constraints:cpu[riscv64]": "64",
-})
-
-BASE_ADDRESS = select({
-    "root//constraints:cpu[aarch64]": "0x00600000",
-    "root//constraints:cpu[x86_32]": "0x8048000",
-    "root//constraints:cpu[x86_64]": "0x00600000",
-    "root//constraints:cpu[riscv64]": "0x00600000",
-})
-
-M2LIBC_DEFS_LIBC_FULL = select({
-    "root//constraints:cpu[aarch64]": [
-        "src/M2libc/aarch64/aarch64_defs.M1",
-        "src/M2libc/aarch64/libc-full.M1",
-    ],
-    "root//constraints:cpu[x86_32]": [
-        "src/M2libc/x86/x86_defs.M1",
-        "src/M2libc/x86/libc-full.M1",
-    ],
-    "root//constraints:cpu[x86_64]": [
-        "src/M2libc/amd64/amd64_defs.M1",
-        "src/M2libc/amd64/libc-full.M1",
-    ],
-    "root//constraints:cpu[riscv64]": [
-        "src/M2libc/riscv64/riscv64_defs.M1",
-        "src/M2libc/riscv64/libc-full.M1",
-    ],
-})
-
-M2LIBC_SYS_STAT = select({
-    "root//constraints:cpu[aarch64]": ["src/M2libc/aarch64/linux/sys/stat.c"],
-    "root//constraints:cpu[x86_32]": ["src/M2libc/x86/linux/sys/stat.c"],
-    "root//constraints:cpu[x86_64]": ["src/M2libc/amd64/linux/sys/stat.c"],
-    "root//constraints:cpu[riscv64]": ["src/M2libc/riscv64/linux/sys/stat.c"],
-})
-
-M2LIBC_SOURCES = [
-    "src/M2libc/sys/types.h",
-    "src/M2libc/stddef.h",
-    "src/M2libc/sys/utsname.h",
-] + select({
-    "root//constraints:cpu[aarch64]": [
-        "src/M2libc/aarch64/linux/unistd.c",
-        "src/M2libc/aarch64/linux/fcntl.c",
-    ],
-    "root//constraints:cpu[x86_32]": [
-        "src/M2libc/x86/linux/unistd.c",
-        "src/M2libc/x86/linux/fcntl.c",
-    ],
-    "root//constraints:cpu[x86_64]": [
-        "src/M2libc/amd64/linux/unistd.c",
-        "src/M2libc/amd64/linux/fcntl.c",
-    ],
-    "root//constraints:cpu[riscv64]": [
-        "src/M2libc/riscv64/linux/unistd.c",
-        "src/M2libc/riscv64/linux/fcntl.c",
-    ],
-}) + [
-    "src/M2libc/fcntl.c",
-]
-
-M2LIBC_STDIO = [
-    "src/M2libc/ctype.c",
-    "src/M2libc/stdlib.c",
-    "src/M2libc/stdarg.h",
-    "src/M2libc/stdio.h",
-    "src/M2libc/stdio.c",
-    "src/M2libc/bootstrappable.c",
-]
-
-HEX2_SOURCES = M2LIBC_SOURCES + M2LIBC_SYS_STAT + M2LIBC_STDIO + [
-    "src/mescc-tools/hex2.h",
-    "src/mescc-tools/hex2_linker.c",
-    "src/mescc-tools/hex2_word.c",
-    "src/mescc-tools/hex2.c",
-]
-
-M1_SOURCES = M2LIBC_SOURCES + ["src/M2libc/string.c"] + M2LIBC_STDIO + [
-    "src/mescc-tools/stringify.c",
-    "src/mescc-tools/M1-macro.c",
-]
-
-KAEM_SOURCES = M2LIBC_SOURCES + ["src/M2libc/string.c"] + M2LIBC_STDIO + [
-    "src/mescc-tools/Kaem/kaem.h",
-    "src/mescc-tools/Kaem/variable.c",
-    "src/mescc-tools/Kaem/kaem_globals.c",
-    "src/mescc-tools/Kaem/kaem.c",
-]
 
 bootstrap_hex_prebuilt(
     name = "hex0_prebuilt",
-    hex = select({
-        "root//constraints:cpu[aarch64]": "src/bootstrap-seeds/POSIX/AArch64/hex0-seed",
-        "root//constraints:cpu[x86_32]": "src/bootstrap-seeds/POSIX/x86/hex0-seed",
-        "root//constraints:cpu[x86_64]": "src/bootstrap-seeds/POSIX/AMD64/hex0-seed",
-        "root//constraints:cpu[riscv64]": "src/bootstrap-seeds/POSIX/riscv64/hex0-seed",
-    }),
+    hex = stage0_path("bootstrap-seeds/POSIX/{arch}/hex0-seed"),
 )
 
 bootstrap_hex_assemble(
     name = "hex0_stage0",
     assembler = ":hex0_prebuilt",
-    src = select({
-        "root//constraints:cpu[aarch64]": "src/bootstrap-seeds/POSIX/AArch64/hex0_AArch64.hex0",
-        "root//constraints:cpu[x86_32]": "src/bootstrap-seeds/POSIX/x86/hex0_x86.hex0",
-        "root//constraints:cpu[x86_64]": "src/bootstrap-seeds/POSIX/AMD64/hex0_AMD64.hex0",
-        "root//constraints:cpu[riscv64]": "src/bootstrap-seeds/POSIX/riscv64/hex0_riscv64.hex0",
-    }),
+    src = stage0_path("bootstrap-seeds/POSIX/{arch}/hex0_{arch}.hex0"),
 )
 
 bootstrap_hex_assemble(
     name = "hex1_stage0",
     assembler = ":hex0_stage0",
-    src = select({
-        "root//constraints:cpu[aarch64]": "src/AArch64/hex1_AArch64.hex0",
-        "root//constraints:cpu[x86_32]": "src/x86/hex1_x86.hex0",
-        "root//constraints:cpu[x86_64]": "src/AMD64/hex1_AMD64.hex0",
-        "root//constraints:cpu[riscv64]": "src/riscv64/hex1_riscv64.hex0",
-    }),
+    src = stage0_path("{arch}/hex1_{arch}.hex0"),
 )
 
 bootstrap_hex_assemble(
     name = "hex2_stage0",
     assembler = ":hex1_stage0",
-    src = select({
-        "root//constraints:cpu[aarch64]": "src/AArch64/hex2_AArch64.hex1",
-        "root//constraints:cpu[x86_32]": "src/x86/hex2_x86.hex1",
-        "root//constraints:cpu[x86_64]": "src/AMD64/hex2_AMD64.hex1",
-        "root//constraints:cpu[riscv64]": "src/riscv64/hex2_riscv64.hex1",
-    }),
+    src = stage0_path("{arch}/hex2_{arch}.hex1"),
 )
 
 bootstrap_hex_assemble(
@@ -210,29 +51,20 @@ bootstrap_hex_assemble(
         "root//constraints:cpu[aarch64]": ":hex1_stage0",
         "DEFAULT": ":hex2_stage0",
     }),
-    src = select({
-        "root//constraints:cpu[aarch64]": "src/AArch64/catm_AArch64.hex1",
-        "root//constraints:cpu[x86_32]": "src/x86/catm_x86.hex2",
-        "root//constraints:cpu[x86_64]": "src/AMD64/catm_AMD64.hex2",
-        "root//constraints:cpu[riscv64]": "src/riscv64/catm_riscv64.hex2",
-    }),
+    src = cpu_select(
+        aarch64 = "src/AArch64/catm_AArch64.hex1",
+        x86 = "src/x86/catm_x86.hex2",
+        amd64 = "src/AMD64/catm_AMD64.hex2",
+        riscv64 = "src/riscv64/catm_riscv64.hex2",
+    ),
 )
 
-bootstrap_concat_file(
-    name = "m0_stage0.hex2",
-    catm = ":catm_stage0",
-    srcs = ELF_HEADER + select({
-        "root//constraints:cpu[aarch64]": ["src/AArch64/M0_AArch64.hex2"],
-        "root//constraints:cpu[x86_32]": ["src/x86/M0_x86.hex2"],
-        "root//constraints:cpu[x86_64]": ["src/AMD64/M0_AMD64.hex2"],
-        "root//constraints:cpu[riscv64]": ["src/riscv64/M0_riscv64.hex2"],
-    }),
-)
-
-bootstrap_hex_assemble(
+bootstrap_hex2_image(
     name = "m0_stage0",
-    assembler = ":hex2_stage0",
-    src = ":m0_stage0.hex2",
+    catm = ":catm_stage0",
+    hex = ":hex2_stage0",
+    srcs = stage0_paths("{arch}/M0_{arch}.hex2"),
+    elf_header = ELF_HEADER,
 )
 
 bootstrap_concat_file(
@@ -247,24 +79,20 @@ bootstrap_concat_file(
 bootstrap_m0_assemble(
     name = "cc_stage0_no_elf_header.hex2",
     assembler = ":m0_stage0",
-    src = select({
-        "root//constraints:cpu[aarch64]": "src/AArch64/cc_aarch64.M1",
-        "root//constraints:cpu[x86_32]": "src/x86/cc_x86.M1",
-        "root//constraints:cpu[x86_64]": "src/AMD64/cc_amd64.M1",
-        "root//constraints:cpu[riscv64]": ":cc_stage0_riscv64.m1",
-    }),
+    src = cpu_select(
+        aarch64 = "src/AArch64/cc_aarch64.M1",
+        x86 = "src/x86/cc_x86.M1",
+        amd64 = "src/AMD64/cc_amd64.M1",
+        riscv64 = ":cc_stage0_riscv64.m1",
+    ),
 )
 
-bootstrap_concat_file(
-    name = "cc_stage0.hex2",
-    catm = ":catm_stage0",
-    srcs = ELF_HEADER + [":cc_stage0_no_elf_header.hex2"],
-)
-
-bootstrap_hex_assemble(
+bootstrap_hex2_image(
     name = "cc_stage0",
-    assembler = ":hex2_stage0",
-    src = ":cc_stage0.hex2",
+    catm = ":catm_stage0",
+    hex = ":hex2_stage0",
+    srcs = [":cc_stage0_no_elf_header.hex2"],
+    elf_header = ELF_HEADER,
 )
 
 bootstrap_concat_file(
@@ -293,26 +121,7 @@ bootstrap_cc_compile(
 bootstrap_concat_file(
     name = "m2_stage0.m1",
     catm = ":catm_stage0",
-    srcs = select({
-        "root//constraints:cpu[aarch64]": [
-            "src/AArch64/aarch64_defs.M1",
-            "src/AArch64/libc-core.M1",
-        ],
-        "root//constraints:cpu[x86_32]": [
-            "src/x86/x86_defs.M1",
-            "src/x86/libc-core.M1",
-        ],
-        "root//constraints:cpu[x86_64]": [
-            "src/AMD64/amd64_defs.M1",
-            "src/AMD64/libc-core.M1",
-        ],
-        "root//constraints:cpu[riscv64]": [
-            "src/riscv64/riscv64_defs.M1",
-            "src/riscv64/libc-core.M1",
-        ],
-    }) + [
-        ":m2_stage0_no_defs_no_libc.m1",
-    ],
+    srcs = STAGE0_DEFS_LIBC + [":m2_stage0_no_defs_no_libc.m1"],
 )
 
 bootstrap_m0_assemble(
@@ -321,22 +130,20 @@ bootstrap_m0_assemble(
     src = ":m2_stage0.m1",
 )
 
-bootstrap_concat_file(
-    name = "m2_stage0.hex2",
-    catm = ":catm_stage0",
-    srcs = ELF_HEADER + [":m2_stage0_no_elf_header.hex2"],
-)
-
-bootstrap_hex_assemble(
+bootstrap_hex2_image(
     name = "m2_stage0",
-    assembler = ":hex2_stage0",
-    src = ":m2_stage0.hex2",
+    catm = ":catm_stage0",
+    hex = ":hex2_stage0",
+    srcs = [":m2_stage0_no_elf_header.hex2"],
+    elf_header = ELF_HEADER,
 )
 
-bootstrap_m2_compile(
-    name = "blood_elf_stage0_no_defs_no_libc.m1",
+bootstrap_m0_program(
+    name = "blood_elf_stage0",
     compiler = ":m2_stage0",
-    architecture = M2_ARCHITECTURE,
+    assembler = ":m0_stage0",
+    catm = ":catm_stage0",
+    hex = ":hex2_stage0",
     bootstrap_mode = True,
     srcs = BOOTSTRAP_C + [
         "src/M2libc/bootstrappable.c",
@@ -345,34 +152,13 @@ bootstrap_m2_compile(
     ],
 )
 
-bootstrap_concat_file(
-    name = "blood_elf_stage0.m1",
-    catm = ":catm_stage0",
-    srcs = M2LIBC_DEFS_LIBC + [":blood_elf_stage0_no_defs_no_libc.m1"],
-)
-
-bootstrap_m0_assemble(
-    name = "blood_elf_stage0_no_elf_header.hex2",
-    assembler = ":m0_stage0",
-    src = ":blood_elf_stage0.m1",
-)
-
-bootstrap_concat_file(
-    name = "blood_elf_stage0.hex2",
-    catm = ":catm_stage0",
-    srcs = M2LIBC_ELF_HEADER + [":blood_elf_stage0_no_elf_header.hex2"],
-)
-
-bootstrap_hex_assemble(
-    name = "blood_elf_stage0",
-    assembler = ":hex2_stage0",
-    src = ":blood_elf_stage0.hex2",
-)
-
-bootstrap_m2_compile(
-    name = "m1_stage0_no_defs_no_libc.m1",
+bootstrap_m0_program(
+    name = "m1_stage0",
     compiler = ":m2_stage0",
-    architecture = M2_ARCHITECTURE,
+    assembler = ":m0_stage0",
+    catm = ":catm_stage0",
+    hex = ":hex2_stage0",
+    blood_elf = ":blood_elf_stage0",
     bootstrap_mode = True,
     debug = True,
     srcs = BOOTSTRAP_C + [
@@ -382,172 +168,39 @@ bootstrap_m2_compile(
     ],
 )
 
-bootstrap_blood_elf(
-    name = "m1_stage0_footer.m1",
-    blood_elf = ":blood_elf_stage0",
-    word_size = WORD_SIZE,
-    src = ":m1_stage0_no_defs_no_libc.m1",
-)
-
-bootstrap_concat_file(
-    name = "m1_stage0.m1",
-    catm = ":catm_stage0",
-    srcs = M2LIBC_DEFS_LIBC + [
-        ":m1_stage0_no_defs_no_libc.m1",
-        ":m1_stage0_footer.m1",
-    ],
-)
-
-bootstrap_m0_assemble(
-    name = "m1_stage0_no_elf_header.hex2",
-    assembler = ":m0_stage0",
-    src = ":m1_stage0.m1",
-)
-
-bootstrap_concat_file(
-    name = "m1_stage0.hex2",
-    catm = ":catm_stage0",
-    srcs = M2LIBC_ELF_HEADER_DEBUG + [":m1_stage0_no_elf_header.hex2"],
-)
-
-bootstrap_hex_assemble(
-    name = "m1_stage0",
-    assembler = ":hex2_stage0",
-    src = ":m1_stage0.hex2",
-)
-
-bootstrap_m2_compile(
-    name = "hex2_stage1_no_defs_no_libc.m1",
+bootstrap_m1_program(
+    name = "hex2_stage1",
     compiler = ":m2_stage0",
-    architecture = M2_ARCHITECTURE,
-    debug = True,
+    assembler = ":m1_stage0",
+    blood_elf = ":blood_elf_stage0",
+    catm = ":catm_stage0",
+    hex = ":hex2_stage0",
     srcs = HEX2_SOURCES,
 )
 
-bootstrap_blood_elf(
-    name = "hex2_stage1_footer.m1",
-    blood_elf = ":blood_elf_stage0",
-    word_size = WORD_SIZE,
-    src = ":hex2_stage1_no_defs_no_libc.m1",
-)
-
-bootstrap_m1_assemble(
-    name = "hex2_stage1_no_elf_header.hex2",
-    assembler = ":m1_stage0",
-    architecture = M2_ARCHITECTURE,
-    srcs = M2LIBC_DEFS_LIBC_FULL + [
-        ":hex2_stage1_no_defs_no_libc.m1",
-        ":hex2_stage1_footer.m1",
-    ],
-)
-
-bootstrap_concat_file(
-    name = "hex2_stage1.hex2",
-    catm = ":catm_stage0",
-    srcs = M2LIBC_ELF_HEADER_DEBUG + [":hex2_stage1_no_elf_header.hex2"],
-)
-
-bootstrap_hex_assemble(
-    name = "hex2_stage1",
-    assembler = ":hex2_stage0",
-    src = ":hex2_stage1.hex2",
-)
-
-bootstrap_m2_compile(
-    name = "m1_stage1_no_defs_no_libc.m1",
+bootstrap_m1_program(
+    name = "m1_stage1",
     compiler = ":m2_stage0",
-    architecture = M2_ARCHITECTURE,
-    debug = True,
+    assembler = ":m1_stage0",
+    blood_elf = ":blood_elf_stage0",
+    linker = ":hex2_stage1",
     srcs = M1_SOURCES,
 )
 
-bootstrap_blood_elf(
-    name = "m1_stage1_footer.m1",
-    blood_elf = ":blood_elf_stage0",
-    word_size = WORD_SIZE,
-    src = ":m1_stage1_no_defs_no_libc.m1",
-)
-
-bootstrap_m1_assemble(
-    name = "m1_stage1.hex2",
-    assembler = ":m1_stage0",
-    architecture = M2_ARCHITECTURE,
-    srcs = M2LIBC_DEFS_LIBC_FULL + [
-        ":m1_stage1_no_defs_no_libc.m1",
-        ":m1_stage1_footer.m1",
-    ],
-)
-
-bootstrap_hex2_link(
-    name = "m1_stage1",
-    linker = ":hex2_stage1",
-    architecture = M2_ARCHITECTURE,
-    base_address = BASE_ADDRESS,
-    srcs = M2LIBC_ELF_HEADER_DEBUG + [":m1_stage1.hex2"],
-)
-
-bootstrap_m2_compile(
-    name = "hex2_stage2_no_defs_no_libc.m1",
+bootstrap_m1_program(
+    name = "hex2_stage2",
     compiler = ":m2_stage0",
-    architecture = M2_ARCHITECTURE,
-    debug = True,
+    assembler = ":m1_stage1",
+    blood_elf = ":blood_elf_stage0",
+    linker = ":hex2_stage1",
     srcs = HEX2_SOURCES,
 )
 
-bootstrap_blood_elf(
-    name = "hex2_stage2_footer.m1",
-    blood_elf = ":blood_elf_stage0",
-    word_size = WORD_SIZE,
-    src = ":hex2_stage2_no_defs_no_libc.m1",
-)
-
-bootstrap_m1_assemble(
-    name = "hex2_stage2.hex2",
-    assembler = ":m1_stage1",
-    architecture = M2_ARCHITECTURE,
-    srcs = M2LIBC_DEFS_LIBC_FULL + [
-        ":hex2_stage2_no_defs_no_libc.m1",
-        ":hex2_stage2_footer.m1",
-    ],
-)
-
-bootstrap_hex2_link(
-    name = "hex2_stage2",
-    linker = ":hex2_stage1",
-    architecture = M2_ARCHITECTURE,
-    base_address = BASE_ADDRESS,
-    srcs = M2LIBC_ELF_HEADER_DEBUG + [":hex2_stage2.hex2"],
-)
-
-bootstrap_m2_compile(
-    name = "kaem_stage0_no_defs_no_libc.m1",
-    compiler = ":m2_stage0",
-    architecture = M2_ARCHITECTURE,
-    debug = True,
-    srcs = KAEM_SOURCES,
-)
-
-bootstrap_blood_elf(
-    name = "kaem_stage0_footer.m1",
-    blood_elf = ":blood_elf_stage0",
-    word_size = WORD_SIZE,
-    src = ":kaem_stage0_no_defs_no_libc.m1",
-)
-
-bootstrap_m1_assemble(
-    name = "kaem_stage0.hex2",
-    assembler = ":m1_stage1",
-    architecture = M2_ARCHITECTURE,
-    srcs = M2LIBC_DEFS_LIBC_FULL + [
-        ":kaem_stage0_no_defs_no_libc.m1",
-        ":kaem_stage0_footer.m1",
-    ],
-)
-
-bootstrap_hex2_link(
+bootstrap_m1_program(
     name = "kaem_stage0",
+    compiler = ":m2_stage0",
+    assembler = ":m1_stage1",
+    blood_elf = ":blood_elf_stage0",
     linker = ":hex2_stage2",
-    architecture = M2_ARCHITECTURE,
-    base_address = BASE_ADDRESS,
-    srcs = M2LIBC_ELF_HEADER_DEBUG + [":kaem_stage0.hex2"],
+    srcs = KAEM_SOURCES,
 )

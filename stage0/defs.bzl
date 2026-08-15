@@ -1,6 +1,154 @@
 # SPDX-FileCopyrightText: 2026 Jean-Pierre De Jesus DIAZ <me@jeandudey.tech>
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
+def cpu_select(aarch64, x86, amd64, riscv64):
+    """Selects a per-CPU value for the four architectures stage0 supports."""
+    return select({
+        "root//constraints:cpu[aarch64]": aarch64,
+        "root//constraints:cpu[x86_32]": x86,
+        "root//constraints:cpu[x86_64]": amd64,
+        "root//constraints:cpu[riscv64]": riscv64,
+    })
+
+# Architecture directory names, as spelled by stage0-posix and by M2libc.
+_STAGE0_ARCHS = ("AArch64", "x86", "AMD64", "riscv64")
+_M2LIBC_ARCHS = ("aarch64", "x86", "amd64", "riscv64")
+
+def _path(fmt, archs):
+    return cpu_select(
+        aarch64 = fmt.format(arch = archs[0]),
+        x86 = fmt.format(arch = archs[1]),
+        amd64 = fmt.format(arch = archs[2]),
+        riscv64 = fmt.format(arch = archs[3]),
+    )
+
+def _paths(fmt, archs):
+    return cpu_select(
+        aarch64 = [fmt.format(arch = archs[0])],
+        x86 = [fmt.format(arch = archs[1])],
+        amd64 = [fmt.format(arch = archs[2])],
+        riscv64 = [fmt.format(arch = archs[3])],
+    )
+
+def stage0_path(fmt):
+    """Per-CPU source path, e.g. "{arch}/hex1_{arch}.hex0"."""
+    return _path("src/" + fmt, _STAGE0_ARCHS)
+
+def stage0_paths(fmt):
+    """Like stage0_path, as a single element list for "srcs" attributes."""
+    return _paths("src/" + fmt, _STAGE0_ARCHS)
+
+def _m2libc_paths(fmt):
+    """Per-CPU path under src/M2libc, e.g. "{arch}/linux/unistd.c"."""
+    return _paths("src/M2libc/" + fmt, _M2LIBC_ARCHS)
+
+M2_ARCHITECTURE = cpu_select(
+    aarch64 = "aarch64",
+    x86 = "x86",
+    amd64 = "amd64",
+    riscv64 = "riscv64",
+)
+
+WORD_SIZE = cpu_select(
+    aarch64 = "64",
+    x86 = "32",
+    amd64 = "64",
+    riscv64 = "64",
+)
+
+BASE_ADDRESS = cpu_select(
+    aarch64 = "0x00600000",
+    x86 = "0x8048000",
+    amd64 = "0x00600000",
+    riscv64 = "0x00600000",
+)
+
+# ELF headers shipped by stage0-posix itself, used until M2libc is reachable.
+ELF_HEADER = cpu_select(
+    aarch64 = ["src/AArch64/ELF-aarch64.hex2"],
+    x86 = ["src/x86/ELF-i386.hex2"],
+    amd64 = ["src/AMD64/ELF-amd64.hex2"],
+    riscv64 = ["src/riscv64/ELF-riscv64.hex2"],
+)
+
+# Architecture definitions and libc that stage0-posix carries itself, used by
+# the M1 sources it ships before M2libc is reachable.
+STAGE0_DEFS_LIBC = cpu_select(
+    aarch64 = [
+        "src/AArch64/aarch64_defs.M1",
+        "src/AArch64/libc-core.M1",
+    ],
+    x86 = [
+        "src/x86/x86_defs.M1",
+        "src/x86/libc-core.M1",
+    ],
+    amd64 = [
+        "src/AMD64/amd64_defs.M1",
+        "src/AMD64/libc-core.M1",
+    ],
+    riscv64 = [
+        "src/riscv64/riscv64_defs.M1",
+        "src/riscv64/libc-core.M1",
+    ],
+)
+
+M2LIBC_ELF_HEADER = _m2libc_paths("{arch}/ELF-{arch}.hex2")
+
+M2LIBC_ELF_HEADER_DEBUG = _m2libc_paths("{arch}/ELF-{arch}-debug.hex2")
+
+M2LIBC_DEFS_LIBC = (
+    _m2libc_paths("{arch}/{arch}_defs.M1") +
+    _m2libc_paths("{arch}/libc-core.M1")
+)
+
+M2LIBC_DEFS_LIBC_FULL = (
+    _m2libc_paths("{arch}/{arch}_defs.M1") +
+    _m2libc_paths("{arch}/libc-full.M1")
+)
+
+BOOTSTRAP_C = _m2libc_paths("{arch}/linux/bootstrap.c")
+
+M2LIBC_SYS_STAT = _m2libc_paths("{arch}/linux/sys/stat.c")
+
+M2LIBC_SOURCES = (
+    [
+        "src/M2libc/sys/types.h",
+        "src/M2libc/stddef.h",
+        "src/M2libc/sys/utsname.h",
+    ] +
+    _m2libc_paths("{arch}/linux/unistd.c") +
+    _m2libc_paths("{arch}/linux/fcntl.c") +
+    ["src/M2libc/fcntl.c"]
+)
+
+M2LIBC_STDIO = [
+    "src/M2libc/ctype.c",
+    "src/M2libc/stdlib.c",
+    "src/M2libc/stdarg.h",
+    "src/M2libc/stdio.h",
+    "src/M2libc/stdio.c",
+    "src/M2libc/bootstrappable.c",
+]
+
+HEX2_SOURCES = M2LIBC_SOURCES + M2LIBC_SYS_STAT + M2LIBC_STDIO + [
+    "src/mescc-tools/hex2.h",
+    "src/mescc-tools/hex2_linker.c",
+    "src/mescc-tools/hex2_word.c",
+    "src/mescc-tools/hex2.c",
+]
+
+M1_SOURCES = M2LIBC_SOURCES + ["src/M2libc/string.c"] + M2LIBC_STDIO + [
+    "src/mescc-tools/stringify.c",
+    "src/mescc-tools/M1-macro.c",
+]
+
+KAEM_SOURCES = M2LIBC_SOURCES + ["src/M2libc/string.c"] + M2LIBC_STDIO + [
+    "src/mescc-tools/Kaem/kaem.h",
+    "src/mescc-tools/Kaem/variable.c",
+    "src/mescc-tools/Kaem/kaem_globals.c",
+    "src/mescc-tools/Kaem/kaem.c",
+]
+
 def _hex_prebuilt_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         DefaultInfo(default_output = ctx.attrs.hex),
@@ -208,3 +356,143 @@ bootstrap_blood_elf = rule(
         "out": attrs.option(attrs.string(), default = None),
     },
 )
+
+def bootstrap_hex2_image(name, catm, hex, srcs, elf_header = M2LIBC_ELF_HEADER):
+    """Prepends an ELF header to srcs and assembles the result into a binary.
+
+    Defines ":<name>.hex2" with the concatenated hex2 and ":<name>" with the
+    assembled binary.
+    """
+    bootstrap_concat_file(
+        name = name + ".hex2",
+        catm = catm,
+        srcs = elf_header + srcs,
+    )
+    bootstrap_hex_assemble(
+        name = name,
+        assembler = hex,
+        src = ":" + name + ".hex2",
+    )
+
+def bootstrap_m2_object(
+        name,
+        compiler,
+        srcs,
+        blood_elf = None,
+        bootstrap_mode = False,
+        debug = False):
+    """Compiles srcs with M2-Planet, optionally emitting a debug footer.
+
+    Returns the M1 parts to hand to an assembler, in link order.
+    """
+    obj = name + "_no_defs_no_libc.m1"
+    bootstrap_m2_compile(
+        name = obj,
+        compiler = compiler,
+        architecture = M2_ARCHITECTURE,
+        bootstrap_mode = bootstrap_mode,
+        debug = debug,
+        srcs = srcs,
+    )
+    parts = [":" + obj]
+
+    if blood_elf != None:
+        footer = name + "_footer.m1"
+        bootstrap_blood_elf(
+            name = footer,
+            blood_elf = blood_elf,
+            word_size = WORD_SIZE,
+            src = ":" + obj,
+        )
+        parts.append(":" + footer)
+
+    return parts
+
+def bootstrap_m0_program(
+        name,
+        compiler,
+        assembler,
+        catm,
+        hex,
+        srcs,
+        blood_elf = None,
+        bootstrap_mode = False,
+        debug = False):
+    """M2-Planet program assembled by M0, for the stage before M1 exists.
+
+    "assembler" is an M0, "hex" a hex2 assembler.
+    """
+    parts = bootstrap_m2_object(
+        name = name,
+        compiler = compiler,
+        srcs = srcs,
+        blood_elf = blood_elf,
+        bootstrap_mode = bootstrap_mode,
+        debug = debug,
+    )
+    bootstrap_concat_file(
+        name = name + ".m1",
+        catm = catm,
+        srcs = M2LIBC_DEFS_LIBC + parts,
+    )
+    bootstrap_m0_assemble(
+        name = name + "_no_elf_header.hex2",
+        assembler = assembler,
+        src = ":" + name + ".m1",
+    )
+    bootstrap_hex2_image(
+        name = name,
+        catm = catm,
+        hex = hex,
+        srcs = [":" + name + "_no_elf_header.hex2"],
+        elf_header = M2LIBC_ELF_HEADER_DEBUG if debug else M2LIBC_ELF_HEADER,
+    )
+
+def bootstrap_m1_program(
+        name,
+        compiler,
+        assembler,
+        blood_elf,
+        srcs,
+        catm = None,
+        hex = None,
+        linker = None):
+    """M2-Planet program assembled by M1 and turned into a binary.
+
+    "assembler" is an M1. The binary comes either from "linker", a hex2 able to
+    link, or from "hex" plus "catm" while hex2 is still assemble-only.
+    """
+    if (linker == None) == (hex == None):
+        fail("bootstrap_m1_program needs exactly one of \"linker\" or \"hex\"")
+
+    parts = bootstrap_m2_object(
+        name = name,
+        compiler = compiler,
+        srcs = srcs,
+        blood_elf = blood_elf,
+        debug = True,
+    )
+    obj = name + ".hex2" if linker != None else name + "_no_elf_header.hex2"
+    bootstrap_m1_assemble(
+        name = obj,
+        assembler = assembler,
+        architecture = M2_ARCHITECTURE,
+        srcs = M2LIBC_DEFS_LIBC_FULL + parts,
+    )
+
+    if linker != None:
+        bootstrap_hex2_link(
+            name = name,
+            linker = linker,
+            architecture = M2_ARCHITECTURE,
+            base_address = BASE_ADDRESS,
+            srcs = M2LIBC_ELF_HEADER_DEBUG + [":" + obj],
+        )
+    else:
+        bootstrap_hex2_image(
+            name = name,
+            catm = catm,
+            hex = hex,
+            srcs = [":" + obj],
+            elf_header = M2LIBC_ELF_HEADER_DEBUG,
+        )
