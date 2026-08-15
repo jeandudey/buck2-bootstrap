@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
 load(
-    "@root//rules:bootstrap.bzl",
+    ":defs.bzl",
     "bootstrap_blood_elf",
     "bootstrap_cc_compile",
     "bootstrap_concat_file",
