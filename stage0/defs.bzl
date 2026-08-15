@@ -42,6 +42,45 @@ def _m2libc_paths(fmt):
     """Per-CPU path under src/M2libc, e.g. "{arch}/linux/unistd.c"."""
     return _paths("src/M2libc/" + fmt, _M2LIBC_ARCHS)
 
+def _m2libc_sources(aarch64, x86, amd64, riscv64):
+    """Per-CPU list of paths under src/M2libc, each a "{arch}" format string."""
+    return cpu_select(
+        aarch64 = ["src/M2libc/" + p.format(arch = "aarch64") for p in aarch64],
+        x86 = ["src/M2libc/" + p.format(arch = "x86") for p in x86],
+        amd64 = ["src/M2libc/" + p.format(arch = "amd64") for p in amd64],
+        riscv64 = ["src/M2libc/" + p.format(arch = "riscv64") for p in riscv64],
+    )
+
+# The order sources are listed in decides the layout of the binary built from
+# them, so every program keeps the order the stage0-posix kaem scripts use, even
+# where those scripts disagree between architectures.
+_UNISTD_FIRST = [
+    "sys/types.h",
+    "stddef.h",
+    "sys/utsname.h",
+    "{arch}/linux/unistd.c",
+    "{arch}/linux/fcntl.c",
+    "fcntl.c",
+]
+
+_FCNTL_FIRST = [
+    "sys/types.h",
+    "stddef.h",
+    "{arch}/linux/fcntl.c",
+    "fcntl.c",
+    "sys/utsname.h",
+    "{arch}/linux/unistd.c",
+]
+
+_UTSNAME_FIRST = [
+    "sys/types.h",
+    "stddef.h",
+    "sys/utsname.h",
+    "{arch}/linux/fcntl.c",
+    "fcntl.c",
+    "{arch}/linux/unistd.c",
+]
+
 M2_ARCHITECTURE = cpu_select(
     aarch64 = "aarch64",
     x86 = "x86",
@@ -110,15 +149,11 @@ BOOTSTRAP_C = _m2libc_paths("{arch}/linux/bootstrap.c")
 
 M2LIBC_SYS_STAT = _m2libc_paths("{arch}/linux/sys/stat.c")
 
-M2LIBC_SOURCES = (
-    [
-        "src/M2libc/sys/types.h",
-        "src/M2libc/stddef.h",
-        "src/M2libc/sys/utsname.h",
-    ] +
-    _m2libc_paths("{arch}/linux/unistd.c") +
-    _m2libc_paths("{arch}/linux/fcntl.c") +
-    ["src/M2libc/fcntl.c"]
+M2LIBC_SOURCES = _m2libc_sources(
+    aarch64 = _UNISTD_FIRST,
+    x86 = _UNISTD_FIRST,
+    amd64 = _UNISTD_FIRST,
+    riscv64 = _UNISTD_FIRST,
 )
 
 M2LIBC_STDIO = [
@@ -137,17 +172,104 @@ HEX2_SOURCES = M2LIBC_SOURCES + M2LIBC_SYS_STAT + M2LIBC_STDIO + [
     "src/mescc-tools/hex2.c",
 ]
 
-M1_SOURCES = M2LIBC_SOURCES + ["src/M2libc/string.c"] + M2LIBC_STDIO + [
+M1_SOURCES = _m2libc_sources(
+    aarch64 = _FCNTL_FIRST,
+    x86 = _UTSNAME_FIRST,
+    amd64 = _FCNTL_FIRST,
+    riscv64 = _UNISTD_FIRST,
+) + [
+    "src/M2libc/stdarg.h",
+    "src/M2libc/string.c",
+    "src/M2libc/ctype.c",
+    "src/M2libc/stdlib.c",
+    "src/M2libc/stdio.h",
+    "src/M2libc/stdio.c",
+    "src/M2libc/bootstrappable.c",
     "src/mescc-tools/stringify.c",
     "src/mescc-tools/M1-macro.c",
 ]
 
-KAEM_SOURCES = M2LIBC_SOURCES + ["src/M2libc/string.c"] + M2LIBC_STDIO + [
+KAEM_SOURCES = M2LIBC_SOURCES + [
+    "src/M2libc/ctype.c",
+    "src/M2libc/stdlib.c",
+    "src/M2libc/string.c",
+    "src/M2libc/stdarg.h",
+    "src/M2libc/stdio.h",
+    "src/M2libc/stdio.c",
+    "src/M2libc/bootstrappable.c",
     "src/mescc-tools/Kaem/kaem.h",
     "src/mescc-tools/Kaem/variable.c",
     "src/mescc-tools/Kaem/kaem_globals.c",
     "src/mescc-tools/Kaem/kaem.c",
 ]
+
+# Phases 12 to 15 are the same on every architecture and all list M2libc with
+# fcntl before unistd.
+_M2LIBC_SOURCES_FCNTL_FIRST = _m2libc_sources(
+    aarch64 = _FCNTL_FIRST,
+    x86 = _FCNTL_FIRST,
+    amd64 = _FCNTL_FIRST,
+    riscv64 = _FCNTL_FIRST,
+)
+
+M2_MESOPLANET_SOURCES = (
+    _M2LIBC_SOURCES_FCNTL_FIRST + M2LIBC_SYS_STAT + [
+        "src/M2libc/ctype.c",
+        "src/M2libc/stdlib.c",
+        "src/M2libc/stdarg.h",
+        "src/M2libc/stdio.h",
+        "src/M2libc/stdio.c",
+        "src/M2libc/string.c",
+        "src/M2libc/bootstrappable.c",
+        "src/M2-Mesoplanet/cc.h",
+        "src/M2-Mesoplanet/cc_globals.c",
+        "src/M2-Mesoplanet/cc_env.c",
+        "src/M2-Mesoplanet/cc_reader.c",
+        "src/M2-Mesoplanet/cc_spawn.c",
+        "src/M2-Mesoplanet/cc_core.c",
+        "src/M2-Mesoplanet/cc_macro.c",
+        "src/M2-Mesoplanet/cc.c",
+    ]
+)
+
+BLOOD_ELF_SOURCES = _M2LIBC_SOURCES_FCNTL_FIRST + M2LIBC_STDIO + [
+    "src/mescc-tools/stringify.c",
+    "src/mescc-tools/blood-elf.c",
+]
+
+GET_MACHINE_SOURCES = M2LIBC_SOURCES + M2LIBC_STDIO + [
+    "src/mescc-tools/get_machine.c",
+]
+
+M2_PLANET_SOURCES = M2LIBC_SOURCES + M2LIBC_STDIO + [
+    "src/M2-Planet/cc.h",
+    "src/M2-Planet/cc_globals.c",
+    "src/M2-Planet/cc_reader.c",
+    "src/M2-Planet/cc_strings.c",
+    "src/M2-Planet/cc_types.c",
+    "src/M2-Planet/cc_emit.c",
+    "src/M2-Planet/cc_core.c",
+    "src/M2-Planet/cc_macro.c",
+    "src/M2-Planet/cc.c",
+]
+
+# The programs mescc-tools-extra ships, as target name to source name. They are
+# all built the same way, by M2-Mesoplanet from a single C file.
+MESCC_TOOLS_EXTRA = {
+    "sha256sum_stage0": "sha256sum",
+    "match_stage0": "match",
+    "mkdir_stage0": "mkdir",
+    "untar_stage0": "untar",
+    "ungz_stage0": "ungz",
+    "unbz2_stage0": "unbz2",
+    "unxz_stage0": "unxz",
+    "catm_stage1": "catm",
+    "cp_stage0": "cp",
+    "chmod_stage0": "chmod",
+    "rm_stage0": "rm",
+    "replace_stage0": "replace",
+    "wrap_stage0": "wrap",
+}
 
 def _hex_prebuilt_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
@@ -354,6 +476,82 @@ bootstrap_blood_elf = rule(
         "word_size": attrs.enum(["32", "64"]),
         "endianness": attrs.string(default = "--little-endian"),
         "out": attrs.option(attrs.string(), default = None),
+    },
+)
+
+def _source_tree_impl(ctx: AnalysisContext) -> list[Provider]:
+    prefix = ctx.attrs.strip_prefix
+    files = {}
+    for src in ctx.attrs.srcs:
+        if not src.short_path.startswith(prefix):
+            fail("{} is not below {}".format(src.short_path, prefix))
+        files[src.short_path[len(prefix):]] = src
+    return [DefaultInfo(default_output = ctx.actions.symlinked_dir(ctx.label.name, files))]
+
+bootstrap_source_tree = rule(
+    impl = _source_tree_impl,
+    attrs = {
+        "srcs": attrs.list(attrs.source()),
+        "strip_prefix": attrs.string(default = ""),
+    },
+)
+
+def _tools_impl(ctx: AnalysisContext) -> list[Provider]:
+    out = ctx.actions.symlinked_dir(
+        ctx.label.name,
+        {name: tool[DefaultInfo].default_outputs[0] for name, tool in ctx.attrs.tools.items()},
+    )
+    return [DefaultInfo(default_output = out)]
+
+bootstrap_tools = rule(
+    impl = _tools_impl,
+    attrs = {
+        "tools": attrs.dict(attrs.string(), attrs.dep(providers = [RunInfo])),
+    },
+)
+
+def _m2_mesoplanet_compile_impl(ctx: AnalysisContext) -> list[Provider]:
+    out = ctx.actions.declare_output(ctx.label.name)
+
+    # M2-Mesoplanet drives M2-Planet, blood-elf, M1 and hex2 itself, looking
+    # them up by name in PATH, and reads M2libc out of M2LIBC_PATH.
+    tools = ctx.attrs.tools[DefaultInfo].default_outputs[0]
+    m2libc = ctx.attrs.m2libc[DefaultInfo].default_outputs[0]
+
+    ctx.actions.run(
+        cmd_args(
+            ctx.attrs.compiler[RunInfo],
+            "--operating-system",
+            ctx.attrs.operating_system,
+            "--architecture",
+            ctx.attrs.architecture,
+            "-f",
+            ctx.attrs.src,
+            "-o",
+            out.as_output(),
+            hidden = [tools, m2libc],
+        ),
+        env = {
+            "M2LIBC_PATH": cmd_args(m2libc),
+            "PATH": cmd_args(tools),
+        },
+        category = "bootstrap_m2_mesoplanet",
+        identifier = ctx.label.name,
+    )
+    return [
+        DefaultInfo(default_output = out),
+        RunInfo(args = cmd_args(out)),
+    ]
+
+bootstrap_m2_mesoplanet_compile = rule(
+    impl = _m2_mesoplanet_compile_impl,
+    attrs = {
+        "compiler": attrs.exec_dep(providers = [RunInfo]),
+        "src": attrs.source(),
+        "m2libc": attrs.dep(),
+        "tools": attrs.exec_dep(),
+        "architecture": attrs.string(),
+        "operating_system": attrs.string(default = "Linux"),
     },
 )
 
