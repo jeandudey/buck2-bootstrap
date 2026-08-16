@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: 2026 Jean-Pierre De Jesus DIAZ <me@jeandudey.tech>
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+load(
+    "//stage0:defs.bzl",
+    "bootstrap_http_file",
+    "bootstrap_untar",
+    "bootstrap_ungz",
+)
+load(
+    ":defs.bzl",
+    "TCC_SHA256",
+    "TCC_URLS",
+    "TCC_VERSION",
+)
+
+# Janneke's tcc, which carries the Mes patches, rather than upstream 0.9.26.
+bootstrap_http_file(
+    name = "tcc.tar.gz",
+    urls = TCC_URLS,
+    sha256 = TCC_SHA256,
+)
+
+bootstrap_ungz(
+    name = "tcc.tar",
+    src = ":tcc.tar.gz",
+    ungz = "//stage0:ungz_stage0",
+)
+
+bootstrap_untar(
+    name = "src",
+    src = ":tcc.tar",
+    kaem = "//stage0:kaem_stage0",
+    mkdir = "//stage0:mkdir_stage0",
+    untar = "//stage0:untar_stage0",
+    visibility = ["PUBLIC"],
+)

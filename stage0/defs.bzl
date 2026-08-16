@@ -651,6 +651,114 @@ bootstrap_sha256_check = rule(
     },
 )
 
+def _http_file_impl(ctx: AnalysisContext) -> list[Provider]:
+    out = ctx.actions.declare_output(ctx.attrs.out or ctx.label.name)
+
+    # The hash is what makes a download part of the bootstrap rather than a hole
+    # in it, so there is no way to ask for one without it.
+    ctx.actions.download_file(
+        out,
+        ctx.attrs.urls[0],
+        vpnless_url = ctx.attrs.urls[1] if len(ctx.attrs.urls) > 1 else None,
+        sha256 = ctx.attrs.sha256,
+    )
+    return [DefaultInfo(default_output = out)]
+
+bootstrap_http_file = rule(
+    impl = _http_file_impl,
+    attrs = {
+        "urls": attrs.list(attrs.string()),
+        "sha256": attrs.string(),
+        "out": attrs.option(attrs.string(), default = None),
+    },
+)
+
+def _ungz_impl(ctx: AnalysisContext) -> list[Provider]:
+    out = ctx.actions.declare_output(ctx.attrs.out or ctx.label.name)
+    ctx.actions.run(
+        cmd_args(
+            ctx.attrs.ungz[RunInfo],
+            "--file",
+            ctx.attrs.src,
+            "--output",
+            out.as_output(),
+        ),
+        category = "bootstrap_ungz",
+        identifier = ctx.label.name,
+    )
+    return [DefaultInfo(default_output = out)]
+
+bootstrap_ungz = rule(
+    impl = _ungz_impl,
+    attrs = {
+        "src": attrs.source(),
+        "out": attrs.option(attrs.string(), default = None),
+        "ungz": attrs.exec_dep(providers = [RunInfo]),
+    },
+)
+
+def _untar_impl(ctx: AnalysisContext) -> list[Provider]:
+    out = ctx.actions.declare_output(ctx.label.name, dir = True)
+
+    # untar unpacks into the working directory and has no way to be pointed at
+    # another one, so the directory has to be made and entered first. That is
+    # what kaem is for: it is the only thing in the toolbox that can cd.
+    script = ctx.actions.write(
+        ctx.label.name + ".kaem",
+        cmd_args(
+            cmd_args(
+                # kaem only takes a name for a path when it starts with a dot or
+                # a slash, and everything buck2 hands it is relative.
+                cmd_args(ctx.attrs.mkdir[RunInfo], format = "./{}"),
+                "-p",
+                cmd_args(out, ignore_artifacts = True),
+                delimiter = " ",
+            ),
+            cmd_args("cd", cmd_args(out, ignore_artifacts = True), delimiter = " "),
+            cmd_args(
+                ctx.attrs.untar[RunInfo],
+                "--file",
+                ctx.attrs.src,
+                delimiter = " ",
+                # Everything below runs from inside the output directory, and
+                # nothing kaem is handed is on PATH.
+                relative_to = out,
+            ),
+            "",
+        ),
+        allow_args = True,
+    )
+
+    ctx.actions.run(
+        cmd_args(
+            ctx.attrs.kaem[RunInfo],
+            "--verbose",
+            "--strict",
+            "--file",
+            script[0],
+            hidden = [
+                script[1],
+                ctx.attrs.mkdir[RunInfo],
+                ctx.attrs.untar[RunInfo],
+                ctx.attrs.src,
+                out.as_output(),
+            ],
+        ),
+        category = "bootstrap_untar",
+        identifier = ctx.label.name,
+    )
+    return [DefaultInfo(default_output = out)]
+
+bootstrap_untar = rule(
+    impl = _untar_impl,
+    attrs = {
+        "src": attrs.source(),
+        "kaem": attrs.exec_dep(providers = [RunInfo]),
+        "mkdir": attrs.exec_dep(providers = [RunInfo]),
+        "untar": attrs.exec_dep(providers = [RunInfo]),
+    },
+)
+
 def bootstrap_hex2_image(name, catm, hex, srcs, elf_header = M2LIBC_ELF_HEADER):
     """Prepends an ELF header to srcs and assembles the result into a binary.
 
