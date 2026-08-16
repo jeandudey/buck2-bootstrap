@@ -1,6 +1,7 @@
 {
   "languages": {
     "Starlark": {
+      "enable_language_server": true,
       "language_servers": ["buck2-lsp", "!starpls", "!tilt"]
     }
   }
