@@ -3,9 +3,13 @@
 
 load(
     "//stage0:defs.bzl",
+    "bootstrap_blood_elf",
+    "bootstrap_concat_file",
     "bootstrap_http_file",
     "bootstrap_hex2_link",
+    "bootstrap_m1_assemble",
     "bootstrap_source_tree",
+    "bootstrap_subst",
     "bootstrap_tree_file",
     "bootstrap_ungz",
     "bootstrap_untar",
@@ -14,10 +18,12 @@ load(
 load(
     "//mes:defs.bzl",
     "ARCHITECTURE",
+    "ARCH_M1",
     "BASE_ADDRESS",
     "COMPATIBLE_WITH",
     "ELF_LINK_FOOTER",
     "ELF_LINK_HEADER",
+    "WORD_SIZE",
     "mescc_object",
 )
 load(
@@ -27,10 +33,16 @@ load(
     "CPU_DEFINES",
     "DEFINES",
     "EXTRA_OBJECTS",
+    "LIBTCC1_DEFINES",
+    "LINKER_FIXES",
+    "MESCC_FIXES",
+    "REWRITTEN_SOURCES",
     "STACK",
     "TCC_DIRECTORY",
     "TCC_SHA256",
     "TCC_URLS",
+    "tcc_library",
+    "tcc_object",
 )
 
 # Janneke's tcc, which carries the Mes patches, rather than upstream 0.9.26.
@@ -73,6 +85,43 @@ bootstrap_tree_file(
     cp = "//stage0:cp_stage0",
 )
 
+# The two sources amd64 cannot use as they came, rewritten with replace rather
+# than with a patch program, and read from a directory searched ahead of the
+# tarball. See MESCC_FIXES and LINKER_FIXES for what is wrong with each.
+bootstrap_tree_file(
+    name = "x86_64-gen.c.in",
+    tree = ":src",
+    path = "x86_64-gen.c",
+    cp = "//stage0:cp_stage0",
+)
+
+bootstrap_subst(
+    name = "x86_64-gen.c",
+    src = ":x86_64-gen.c.in",
+    replace = "//stage0:replace_stage0",
+    substitutions = MESCC_FIXES,
+)
+
+bootstrap_tree_file(
+    name = "tccelf.c.in",
+    tree = ":src",
+    path = "tccelf.c",
+    cp = "//stage0:cp_stage0",
+)
+
+bootstrap_subst(
+    name = "tccelf.c",
+    src = ":tccelf.c.in",
+    replace = "//stage0:replace_stage0",
+    substitutions = LINKER_FIXES,
+)
+
+bootstrap_source_tree(
+    name = "rewritten_src",
+    extra = REWRITTEN_SOURCES,
+    target_compatible_with = COMPATIBLE_WITH,
+)
+
 # ONE_SOURCE, so this one object is all of tcc.
 mescc_object(
     name = "tcc",
@@ -82,6 +131,7 @@ mescc_object(
     defines = DEFINES + CPU_DEFINES,
     includes = [
         ":config_include",
+        ":rewritten_src",
         ":src",
     ],
     arena = ARENA,
@@ -104,4 +154,89 @@ bootstrap_hex2_link(
     ] + ELF_LINK_FOOTER,
     target_compatible_with = COMPATIBLE_WITH,
     visibility = ["PUBLIC"],
+)
+
+# REBUILD_LIBC: the C library again, this time compiled by the tcc that MesCC
+# built rather than by MesCC. Everything below here is a Mes source and a
+# hex2 built compiler, and nothing below here is in MesCC's dialect any more.
+[
+    tcc_object(
+        name = crt + ".o",
+        tcc = ":tcc_mes",
+        src = "//mes:" + crt + ".c",
+        visibility = ["PUBLIC"],
+    )
+    for crt in [
+        "crt1",
+        "crti",
+        "crtn",
+    ]
+]
+
+tcc_library(
+    name = "libc",
+    tcc = ":tcc_mes",
+    src = "//mes:libc+gnu.c",
+    visibility = ["PUBLIC"],
+)
+
+tcc_library(
+    name = "libtcc1",
+    tcc = ":tcc_mes",
+    src = "//mes:libtcc1.c",
+    defines = LIBTCC1_DEFINES,
+    visibility = ["PUBLIC"],
+)
+
+tcc_library(
+    name = "libgetopt",
+    tcc = ":tcc_mes",
+    src = "//mes:libgetopt.c",
+    visibility = ["PUBLIC"],
+)
+
+# tcc_mes again with a symbol table, which the one the bootstrap uses does not
+# carry. Nothing depends on it: it is here so that a compiler that dies in a
+# way only its own code explains can be put under a debugger.
+bootstrap_concat_file(
+    name = "tcc_all.s",
+    catm = "//stage0:catm_stage1",
+    srcs = ARCH_M1 + [
+        ":tcc.s",
+        "//mes:libc+tcc.s",
+        "//mes:libmescc.s",
+    ],
+    target_compatible_with = COMPATIBLE_WITH,
+)
+
+bootstrap_blood_elf(
+    name = "tcc_footer.M1",
+    blood_elf = "//stage0:blood_elf_stage1",
+    src = ":tcc_all.s",
+    word_size = WORD_SIZE,
+    target_compatible_with = COMPATIBLE_WITH,
+)
+
+bootstrap_m1_assemble(
+    name = "tcc_footer.o",
+    assembler = "//stage0:m1_stage1",
+    architecture = ARCHITECTURE,
+    srcs = ARCH_M1 + [":tcc_footer.M1"],
+    target_compatible_with = COMPATIBLE_WITH,
+)
+
+bootstrap_hex2_link(
+    name = "tcc_debug",
+    linker = "//stage0:hex2_stage2",
+    architecture = ARCHITECTURE,
+    base_address = BASE_ADDRESS,
+    srcs = ELF_LINK_HEADER + [
+        "//mes:crt1.o",
+        ":tcc.o",
+    ] + EXTRA_OBJECTS + [
+        "//mes:libc+tcc.a",
+        "//mes:libmescc.a",
+        ":tcc_footer.o",
+    ],
+    target_compatible_with = COMPATIBLE_WITH,
 )

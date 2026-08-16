@@ -4,6 +4,7 @@
 load(
     "//stage0:defs.bzl",
     "bootstrap_blood_elf",
+    "bootstrap_concat_file",
     "bootstrap_file",
     "bootstrap_hex2_link",
     "bootstrap_m1_assemble",
@@ -22,9 +23,13 @@ load(
     "CPU_DEFINES",
     "CONFIG_INCLUDE",
     "CRT1",
+    "CRT1_C",
+    "CRTI_C",
+    "CRTN_C",
     "ELF_HEADER",
     "ELF_LINK_FOOTER",
     "ELF_LINK_HEADER",
+    "LIBC_GNU_SOURCES",
     "LIBC_MINI_OBJECTS",
     "LIBC_OBJECTS",
     "LIBC_TCC_OBJECTS",
@@ -131,6 +136,7 @@ bootstrap_source_tree(
     name = "include",
     srcs = glob(["src/include/**"]),
     strip_prefix = "src/include/",
+    visibility = ["PUBLIC"],
 )
 
 # configure.sh writes config.h into the build tree's include directory, which
@@ -139,6 +145,7 @@ bootstrap_source_tree(
     name = "config_include",
     extra = CONFIG_INCLUDE,
     target_compatible_with = COMPATIBLE_WITH,
+    visibility = ["PUBLIC"],
 )
 
 bootstrap_subst(
@@ -230,6 +237,52 @@ mescc_archive(
     name = "libc+tcc",
     catm = "//stage0:catm_stage1",
     objects = LIBC_TCC_OBJECTS,
+    visibility = ["PUBLIC"],
+)
+
+# The C library as a compiler that is not MesCC wants it: one source rather
+# than two hundred objects, and the start files next to it. build-source-lib.sh
+# writes these into the install prefix, where tcc's bootstrap.sh reads them.
+bootstrap_concat_file(
+    name = "libc+gnu.c",
+    catm = "//stage0:catm_stage1",
+    srcs = LIBC_GNU_SOURCES,
+    target_compatible_with = COMPATIBLE_WITH,
+    visibility = ["PUBLIC"],
+)
+
+bootstrap_file(
+    name = "crt1.c",
+    src = CRT1_C,
+    target_compatible_with = COMPATIBLE_WITH,
+    visibility = ["PUBLIC"],
+)
+
+bootstrap_file(
+    name = "crti.c",
+    src = CRTI_C,
+    target_compatible_with = COMPATIBLE_WITH,
+    visibility = ["PUBLIC"],
+)
+
+bootstrap_file(
+    name = "crtn.c",
+    src = CRTN_C,
+    target_compatible_with = COMPATIBLE_WITH,
+    visibility = ["PUBLIC"],
+)
+
+# The compiler support routines tcc calls for what its code generator does not
+# emit inline, and getopt, which Mes keeps out of the C library proper.
+bootstrap_file(
+    name = "libtcc1.c",
+    src = "src/lib/libtcc1.c",
+    visibility = ["PUBLIC"],
+)
+
+bootstrap_file(
+    name = "libgetopt.c",
+    src = "src/lib/posix/getopt.c",
     visibility = ["PUBLIC"],
 )
 
