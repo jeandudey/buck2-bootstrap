@@ -698,7 +698,11 @@ bootstrap_ungz = rule(
 )
 
 def _untar_impl(ctx: AnalysisContext) -> list[Provider]:
-    out = ctx.actions.declare_output(ctx.label.name, dir = True)
+    # A tarball that unpacks into a directory of its own becomes that directory,
+    # so that what depends on it is not written in terms of the version.
+    directory = ctx.attrs.directory
+    out = ctx.actions.declare_output(directory or ctx.label.name, dir = True)
+    into = cmd_args(out, ignore_artifacts = True, parent = 1 if directory else 0)
 
     # untar unpacks into the working directory and has no way to be pointed at
     # another one, so the directory has to be made and entered first. That is
@@ -711,18 +715,18 @@ def _untar_impl(ctx: AnalysisContext) -> list[Provider]:
                 # a slash, and everything buck2 hands it is relative.
                 cmd_args(ctx.attrs.mkdir[RunInfo], format = "./{}"),
                 "-p",
-                cmd_args(out, ignore_artifacts = True),
+                into,
                 delimiter = " ",
             ),
-            cmd_args("cd", cmd_args(out, ignore_artifacts = True), delimiter = " "),
+            cmd_args("cd", into, delimiter = " "),
             cmd_args(
                 ctx.attrs.untar[RunInfo],
                 "--file",
                 ctx.attrs.src,
                 delimiter = " ",
-                # Everything below runs from inside the output directory, and
-                # nothing kaem is handed is on PATH.
-                relative_to = out,
+                # Everything below runs from inside that directory, and nothing
+                # kaem is handed is on PATH.
+                relative_to = (out, 1 if directory else 0),
             ),
             "",
         ),
@@ -753,9 +757,57 @@ bootstrap_untar = rule(
     impl = _untar_impl,
     attrs = {
         "src": attrs.source(),
+        "directory": attrs.option(attrs.string(), default = None),
         "kaem": attrs.exec_dep(providers = [RunInfo]),
         "mkdir": attrs.exec_dep(providers = [RunInfo]),
         "untar": attrs.exec_dep(providers = [RunInfo]),
+    },
+)
+
+def _tree_file_impl(ctx: AnalysisContext) -> list[Provider]:
+    tree = ctx.attrs.tree[DefaultInfo].default_outputs[0]
+    out = ctx.actions.declare_output(ctx.attrs.out or ctx.label.name)
+    ctx.actions.run(
+        cmd_args(
+            ctx.attrs.cp[RunInfo],
+            cmd_args(tree, format = "{}/" + ctx.attrs.path),
+            out.as_output(),
+        ),
+        category = "bootstrap_cp",
+        identifier = ctx.label.name,
+    )
+    return [DefaultInfo(default_output = out)]
+
+bootstrap_tree_file = rule(
+    impl = _tree_file_impl,
+    attrs = {
+        "tree": attrs.dep(),
+        "path": attrs.string(),
+        "out": attrs.option(attrs.string(), default = None),
+        "cp": attrs.exec_dep(providers = [RunInfo]),
+    },
+)
+
+def _file_impl(ctx: AnalysisContext) -> list[Provider]:
+    return [DefaultInfo(default_output = ctx.attrs.src)]
+
+# A source another package has to be able to name.
+bootstrap_file = rule(
+    impl = _file_impl,
+    attrs = {
+        "src": attrs.source(),
+    },
+)
+
+def _write_file_impl(ctx: AnalysisContext) -> list[Provider]:
+    out = ctx.actions.write(ctx.attrs.out or ctx.label.name, ctx.attrs.content)
+    return [DefaultInfo(default_output = out)]
+
+bootstrap_write_file = rule(
+    impl = _write_file_impl,
+    attrs = {
+        "content": attrs.list(attrs.string()),
+        "out": attrs.option(attrs.string(), default = None),
     },
 )
 

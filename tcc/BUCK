@@ -4,14 +4,33 @@
 load(
     "//stage0:defs.bzl",
     "bootstrap_http_file",
-    "bootstrap_untar",
+    "bootstrap_hex2_link",
+    "bootstrap_source_tree",
+    "bootstrap_tree_file",
     "bootstrap_ungz",
+    "bootstrap_untar",
+    "bootstrap_write_file",
+)
+load(
+    "//mes:defs.bzl",
+    "ARCHITECTURE",
+    "BASE_ADDRESS",
+    "COMPATIBLE_WITH",
+    "ELF_LINK_FOOTER",
+    "ELF_LINK_HEADER",
+    "mescc_object",
 )
 load(
     ":defs.bzl",
+    "ARENA",
+    "CONFIG_H",
+    "CPU_DEFINES",
+    "DEFINES",
+    "EXTRA_OBJECTS",
+    "STACK",
+    "TCC_DIRECTORY",
     "TCC_SHA256",
     "TCC_URLS",
-    "TCC_VERSION",
 )
 
 # Janneke's tcc, which carries the Mes patches, rather than upstream 0.9.26.
@@ -30,8 +49,59 @@ bootstrap_ungz(
 bootstrap_untar(
     name = "src",
     src = ":tcc.tar",
+    directory = TCC_DIRECTORY,
     kaem = "//stage0:kaem_stage0",
     mkdir = "//stage0:mkdir_stage0",
     untar = "//stage0:untar_stage0",
+    visibility = ["PUBLIC"],
+)
+
+bootstrap_write_file(
+    name = "config.h",
+    content = CONFIG_H,
+)
+
+bootstrap_source_tree(
+    name = "config_include",
+    extra = {"config.h": ":config.h"},
+)
+
+bootstrap_tree_file(
+    name = "tcc.c",
+    tree = ":src",
+    path = "tcc.c",
+    cp = "//stage0:cp_stage0",
+)
+
+# ONE_SOURCE, so this one object is all of tcc.
+mescc_object(
+    name = "tcc",
+    mescc = "//mes:mescc",
+    assembler = "//stage0:m1_stage1",
+    src = ":tcc.c",
+    defines = DEFINES + CPU_DEFINES,
+    includes = [
+        ":config_include",
+        ":src",
+    ],
+    arena = ARENA,
+    stack = STACK,
+)
+
+# tcc as MesCC builds it, upstream's tcc-mes: the compiler the rest of the
+# bootstrap is built with, and the one that rebuilds tcc until it settles.
+bootstrap_hex2_link(
+    name = "tcc_mes",
+    linker = "//stage0:hex2_stage2",
+    architecture = ARCHITECTURE,
+    base_address = BASE_ADDRESS,
+    srcs = ELF_LINK_HEADER + [
+        "//mes:crt1.o",
+        ":tcc.o",
+    ] + EXTRA_OBJECTS + [
+        "//mes:libc+tcc.a",
+        "//mes:libmescc.a",
+    ] + ELF_LINK_FOOTER,
+    target_compatible_with = COMPATIBLE_WITH,
     visibility = ["PUBLIC"],
 )

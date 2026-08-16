@@ -78,7 +78,9 @@ MESCC_SUBSTITUTIONS = mes_cpu_select(
 CRT1 = _mes_path("lib/linux/{cpu}-mes-mescc/crt1.c")
 
 # The architecture macros M1 needs ahead of anything MesCC emits.
-ARCH_M1 = _mes_paths("lib/{cpu}-mes/{cpu}.M1")
+ARCH_M1_SRC = _mes_path("lib/{cpu}-mes/{cpu}.M1")
+
+ARCH_M1 = ["//mes:arch.M1"]
 
 # What the stage0 tools are told to target, "stage0_cpu" in the kaem scripts.
 ARCHITECTURE = mes_cpu_select(
@@ -110,18 +112,23 @@ LIBC_M1 = (
 ELF_HEADER = _mes_paths("lib/m2/{cpu}/ELF-{cpu}.hex2")
 
 # What MesCC links with: the ELF header and footer of its own C library, picked
-# by word size rather than by CPU.
-ELF_LINK_HEADER = mes_cpu_select(
-    x86 = ["src/lib/linux/x86-mes/elf32-header.hex2"],
-    amd64 = ["src/lib/linux/x86_64-mes/elf64-header.hex2"],
-    riscv64 = ["src/lib/linux/riscv64-mes/elf64-header.hex2"],
+# by word size rather than by CPU. Named as targets rather than as sources, so
+# that packages other than this one can link the same way.
+ELF_LINK_HEADER_SRC = mes_cpu_select(
+    x86 = "src/lib/linux/x86-mes/elf32-header.hex2",
+    amd64 = "src/lib/linux/x86_64-mes/elf64-header.hex2",
+    riscv64 = "src/lib/linux/riscv64-mes/elf64-header.hex2",
 )
 
-ELF_LINK_FOOTER = mes_cpu_select(
-    x86 = ["src/lib/linux/x86-mes/elf32-footer-single-main.hex2"],
-    amd64 = ["src/lib/linux/x86_64-mes/elf64-footer-single-main.hex2"],
-    riscv64 = ["src/lib/linux/riscv64-mes/elf64-footer-single-main.hex2"],
+ELF_LINK_FOOTER_SRC = mes_cpu_select(
+    x86 = "src/lib/linux/x86-mes/elf32-footer-single-main.hex2",
+    amd64 = "src/lib/linux/x86_64-mes/elf64-footer-single-main.hex2",
+    riscv64 = "src/lib/linux/riscv64-mes/elf64-footer-single-main.hex2",
 )
+
+ELF_LINK_HEADER = ["//mes:elf-header.hex2"]
+
+ELF_LINK_FOOTER = ["//mes:elf-footer.hex2"]
 
 # configure.sh copies the CPU's kernel headers into the build tree as "arch",
 # next to the config.h it generates. Both are searched before the sources.
@@ -731,11 +738,28 @@ def _mescc_compile_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     for define in ctx.attrs.defines:
         cmd.add("-D", define)
+
+    # Ahead of the Mes C library, the way upstream builds anything that carries
+    # headers of its own.
+    for include in ctx.attrs.includes:
+        cmd.add("-I", include[DefaultInfo].default_outputs[0])
     cmd.add(mescc.includes, ctx.attrs.src)
+
+    # Mes neither grows its heap past MES_MAX_ARENA nor checks its stack: it
+    # dies of a segmentation fault on a source large enough, so a source that
+    # needs more room than mescc was given says how much.
+    env = mescc.env
+    if ctx.attrs.arena or ctx.attrs.stack:
+        env = dict(env)
+        if ctx.attrs.arena:
+            env["MES_ARENA"] = ctx.attrs.arena
+            env["MES_MAX_ARENA"] = ctx.attrs.arena
+        if ctx.attrs.stack:
+            env["MES_STACK"] = ctx.attrs.stack
 
     ctx.actions.run(
         cmd,
-        env = mescc.env,
+        env = env,
         category = "mescc",
         identifier = ctx.label.name,
     )
@@ -744,14 +768,31 @@ def _mescc_compile_impl(ctx: AnalysisContext) -> list[Provider]:
 mescc_compile = rule(
     impl = _mescc_compile_impl,
     attrs = {
-        "mescc": attrs.exec_dep(providers = [MesccInfo]),
+        # Which CPU MesCC compiles for is baked into the script rather than
+        # passed to it, so mescc belongs to the target rather than to the
+        # machine it runs on. Mes itself is what has to run here, and the mescc
+        # rule asks for that one as an exec_dep.
+        "mescc": attrs.dep(providers = [MesccInfo]),
         "src": attrs.source(),
         "headers": attrs.list(attrs.source(), default = []),
+        "includes": attrs.list(attrs.dep(), default = []),
         "defines": attrs.list(attrs.string(), default = ["HAVE_CONFIG_H=1"]),
+        "arena": attrs.option(attrs.string(), default = None),
+        "stack": attrs.option(attrs.string(), default = None),
     },
 )
 
-def mescc_object(name, mescc, assembler, src, headers = [], defines = None):
+def mescc_object(
+        name,
+        mescc,
+        assembler,
+        src,
+        headers = [],
+        includes = [],
+        defines = None,
+        arena = None,
+        stack = None,
+        visibility = None):
     """Compiles one C file the way MesCC does, in two visible steps.
 
     Defines ":<name>.s" with the assembly and ":<name>.o" with what M1 makes of
@@ -762,7 +803,10 @@ def mescc_object(name, mescc, assembler, src, headers = [], defines = None):
         mescc = mescc,
         src = src,
         headers = headers,
+        includes = includes,
         defines = defines,
+        arena = arena,
+        stack = stack,
         target_compatible_with = COMPATIBLE_WITH,
     )
     bootstrap_m1_assemble(
@@ -771,6 +815,7 @@ def mescc_object(name, mescc, assembler, src, headers = [], defines = None):
         architecture = ARCHITECTURE,
         srcs = ARCH_M1 + [":" + name + ".s"],
         target_compatible_with = COMPATIBLE_WITH,
+        visibility = visibility,
     )
 
 def mescc_objects(mescc, assembler, sources, headers = []):
