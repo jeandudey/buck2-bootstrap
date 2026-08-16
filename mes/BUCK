@@ -23,6 +23,7 @@ load(
     "ELF_LINK_HEADER",
     "LIBC_MINI_OBJECTS",
     "LIBC_OBJECTS",
+    "LIBC_TCC_OBJECTS",
     "LIBMESCC_OBJECTS",
     "LIBC_M1",
     "MESCC_SOURCES",
@@ -183,6 +184,14 @@ mescc_archive(
     name = "libc",
     catm = "//stage0:catm_stage1",
     objects = LIBC_OBJECTS,
+)
+
+# What tcc is compiled and linked against, rather than libc.a.
+mescc_archive(
+    name = "libc+tcc",
+    catm = "//stage0:catm_stage1",
+    objects = LIBC_TCC_OBJECTS,
+    visibility = ["PUBLIC"],
 )
 
 # Mes built by MesCC rather than by M2-Planet: upstream's bin/mes-mescc, which
