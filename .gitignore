@@ -3,3 +3,5 @@
 
 buck-out
 .buckconfig.local
+*.dot
+*.svg
