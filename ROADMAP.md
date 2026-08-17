@@ -77,6 +77,41 @@ RISC-V to fall back to. It stays its own bootstrap CPU, and needs a riscv64
 worker or binfmt to get past `tcc-mes`. aarch64 is not a bootstrap CPU at all —
 Mes has no port — so it can only ever be a cross target.
 
+### Native for as long as possible
+
+Guix goes 32-bit at the seed. We do not have to, and we do not: **the
+architecture stops being built into the tools and becomes a command line
+argument at phase 5.** `hex2`, `M1`, `blood-elf`, `M2-Planet` and
+`M2-Mesoplanet` all take `-A/--architecture`, so from M2-Planet onward the
+output CPU is an argument rather than a property of the binary. Only `M0` and
+`cc` are locked, and upstream says so itself: "M0 is the architecture specific
+version of M1 and is by design single architecture only".
+
+So the seed chain runs natively and still emits x86. This is already what the
+repository does, without anyone having designed it: every stage0 tool and the
+Mes interpreter are `exec_dep`s, so they resolve to the execution platform,
+while the artifacts resolve to the target platform.
+
+    root//mes:mes_m2         (root//platforms:default#…)      amd64, runs here
+    root//stage0:hex2_stage2 (root//platforms:default#…)      amd64, runs here
+    root//mes:mescc.scm      (root//platforms:linux-x86_32#…) targets x86
+    root//tcc:tcc.o          (root//platforms:linux-x86_32#…) targets x86
+
+The i386 `tcc-mes` that compiles and links working programs was produced by an
+amd64 `mes-m2` and assembled by an amd64 `M1` and `hex2`.
+
+**The policy, then: native for everything that runs, x86 for everything that is
+produced, until tcc can be built for x86_64.** 32-bit execution is needed from
+`tcc-mes` onward and no earlier, because tcc carries its target in the binary
+and its boot chain is self-hosting — a cross tcc hosted on amd64 would buy
+exactly one step, since the tcc it emits is i386 and has to run to make the
+next one.
+
+The one measured cost: an amd64 `mes-m2` spends about 1.3G at
+`MES_MAX_ARENA=50000000` because its cells are 64-bit, roughly twice what an
+i686 one would. That is the price of not being Guix here, and it is worth
+paying while it is only MesCC that pays it.
+
 ## Housekeeping, first
 
 Done before the boot chain, so that nothing after it is written twice.
@@ -85,12 +120,13 @@ Done before the boot chain, so that nothing after it is written twice.
    both "what this runs on" and "what this targets". The bootstrap layer wants
    the first; binutils and GCC want the second. Everything else follows from
    this.
-2. **Pin the bootstrap layer to the bootstrap CPU.** `//stage0`, `//nyacc`,
-   `//mes` and `//tcc` should resolve to the same configuration whatever the
-   target platform is, by transition rather than by every rule selecting on the
-   target CPU. Today `--target-platforms //platforms:linux-x86_64` recompiles
-   all of Mes and all of tcc under MesCC, about ten minutes of arena-bound work
-   per CPU, to produce a compiler that is not on the road to GCC.
+2. **Pin what `//mes` and `//tcc` target, not where they run.** Where they run
+   is already right: the tools are `exec_dep`s and come out native. What is
+   wrong is the default target. `target_platform_detector_spec` sends
+   everything to `//platforms:linux-x86_64`, so a bare `buck2 build
+   //tcc:tcc_mes` spends ten minutes of arena-bound MesCC work producing the
+   amd64 compiler that cannot do varargs, rather than the x86 one that works.
+   The bootstrap layer should resolve to an x86 target however it is asked for.
 3. **Rework `COMPATIBLE_WITH`.** The aarch64 trick in `mes/defs.bzl` — asking
    for a CPU the platform cannot have, so buck2 skips the target rather than
    failing to resolve a `select` — exists only because the bootstrap layer is
@@ -114,6 +150,13 @@ Done before the boot chain, so that nothing after it is written twice.
 7. **Say what the execution platform is.** `//platforms:default` hardwires
    `linux-x86_64`, which is right — it is the machine — but it reads like a
    target choice, and after the split it should not.
+8. **Make `//stage0:check` cover the binaries that do the work.** It is a
+   target-configured product, so it hashes the tools in the target
+   configuration while the ones assembling and linking are the exec-configured
+   copies. Today those are byte for byte the same file, because the default
+   target platform and the execution platform are both x86_64 — so the check is
+   sound by coincidence rather than by construction. Once the bootstrap layer
+   targets x86, the check would be verifying an x86 stage0 that never runs.
 
 ## Next: finishing tcc
 
