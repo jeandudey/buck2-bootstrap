@@ -488,25 +488,6 @@ bootstrap_blood_elf = rule(
     },
 )
 
-def _source_tree_impl(ctx: AnalysisContext) -> list[Provider]:
-    prefix = ctx.attrs.strip_prefix
-    files = {}
-    for src in ctx.attrs.srcs:
-        if not src.short_path.startswith(prefix):
-            fail("{} is not below {}".format(src.short_path, prefix))
-        files[src.short_path[len(prefix):]] = src
-    files.update(ctx.attrs.extra)
-    return [DefaultInfo(default_output = ctx.actions.symlinked_dir(ctx.label.name, files))]
-
-bootstrap_source_tree = rule(
-    impl = _source_tree_impl,
-    attrs = {
-        "srcs": attrs.list(attrs.source(), default = []),
-        "strip_prefix": attrs.string(default = ""),
-        "extra": attrs.dict(attrs.string(), attrs.source(), default = {}),
-    },
-)
-
 def _subst_impl(ctx: AnalysisContext) -> list[Provider]:
     src = ctx.attrs.src
     out = None

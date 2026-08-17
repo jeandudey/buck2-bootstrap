@@ -1,0 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Jean-Pierre De Jesus DIAZ <me@jeandudey.tech>
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+
+# Nothing is built here. The package exists so that defs.bzl can be loaded as
+# //common:defs.bzl rather than out of somebody else's package.

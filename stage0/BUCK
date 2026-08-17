@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Jean-Pierre De Jesus DIAZ <me@jeandudey.tech>
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
+load("//common:defs.bzl", "filegroup_strip_prefix")
 load(
     ":defs.bzl",
     "ANSWERS",
@@ -27,7 +28,6 @@ load(
     "bootstrap_m1_program",
     "bootstrap_m2_mesoplanet_compile",
     "bootstrap_sha256_check",
-    "bootstrap_source_tree",
     "bootstrap_tools",
     "cpu_select",
     "stage0_path",
@@ -259,10 +259,10 @@ bootstrap_m1_program(
     visibility = ["PUBLIC"],
 )
 
-bootstrap_source_tree(
+filegroup_strip_prefix(
     name = "m2libc",
     srcs = glob(["src/M2libc/**"]),
-    strip_prefix = "src/M2libc/",
+    prefix = "src/M2libc/",
 )
 
 # What M2-Mesoplanet looks for in PATH when it drives a compile.

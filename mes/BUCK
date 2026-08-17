@@ -9,9 +9,9 @@ load(
     "bootstrap_hex2_link",
     "bootstrap_m1_assemble",
     "bootstrap_m2_compile",
-    "bootstrap_source_tree",
     "bootstrap_subst",
 )
+load("//common:defs.bzl", "filegroup_strip_prefix")
 load(
     ":defs.bzl",
     "ARCHITECTURE",
@@ -119,23 +119,23 @@ bootstrap_hex2_link(
 )
 
 # Where Mes looks for boot-5.scm, and the (mes ...) modules.
-bootstrap_source_tree(
+filegroup_strip_prefix(
     name = "mes_prefix",
     srcs = glob(["src/mes/module/**"]),
-    strip_prefix = "src/",
+    prefix = "src/",
 )
 
 # The (mescc ...) modules, the compiler proper.
-bootstrap_source_tree(
+filegroup_strip_prefix(
     name = "modules",
     srcs = glob(["src/module/**"]),
-    strip_prefix = "src/module/",
+    prefix = "src/module/",
 )
 
-bootstrap_source_tree(
+filegroup_strip_prefix(
     name = "include",
     srcs = glob(["src/include/**"]),
-    strip_prefix = "src/include/",
+    prefix = "src/include/",
     visibility = ["PUBLIC"],
 )
 
