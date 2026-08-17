@@ -8,7 +8,6 @@ load(
     "bootstrap_http_file",
     "bootstrap_hex2_link",
     "bootstrap_m1_assemble",
-    "bootstrap_source_tree",
     "bootstrap_subst",
     "bootstrap_tree_file",
     "bootstrap_ungz",
@@ -73,9 +72,10 @@ bootstrap_write_file(
     content = CONFIG_H,
 )
 
-bootstrap_source_tree(
+filegroup(
     name = "config_include",
-    extra = {"config.h": ":config.h"},
+    srcs = {"config.h": ":config.h"},
+    copy = False,
 )
 
 bootstrap_tree_file(
@@ -116,9 +116,10 @@ bootstrap_subst(
     substitutions = LINKER_FIXES,
 )
 
-bootstrap_source_tree(
+filegroup(
     name = "rewritten_src",
-    extra = REWRITTEN_SOURCES,
+    srcs = REWRITTEN_SOURCES,
+    copy = False,
     target_compatible_with = COMPATIBLE_WITH,
 )
 

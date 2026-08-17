@@ -141,9 +141,10 @@ bootstrap_source_tree(
 
 # configure.sh writes config.h into the build tree's include directory, which
 # is searched ahead of the one in the sources.
-bootstrap_source_tree(
+filegroup(
     name = "config_include",
-    extra = CONFIG_INCLUDE,
+    srcs = CONFIG_INCLUDE,
+    copy = False,
     target_compatible_with = COMPATIBLE_WITH,
     visibility = ["PUBLIC"],
 )
