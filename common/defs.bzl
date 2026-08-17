@@ -3,7 +3,7 @@
 
 load("@prelude//:rules.bzl", "filegroup")
 
-def filegroup_strip_prefix(name, srcs, prefix, **kwargs):
+def filegroup_strip_prefix(name: str, srcs: list[str], prefix: str, **kwargs) -> None:
     """A filegroup laid out with a leading path component removed.
 
     Tools that are handed a directory rather than a list of files want it
