@@ -524,20 +524,6 @@ bootstrap_subst = rule(
     },
 )
 
-def _tools_impl(ctx: AnalysisContext) -> list[Provider]:
-    out = ctx.actions.symlinked_dir(
-        ctx.label.name,
-        {name: tool[DefaultInfo].default_outputs[0] for name, tool in ctx.attrs.tools.items()},
-    )
-    return [DefaultInfo(default_output = out)]
-
-bootstrap_tools = rule(
-    impl = _tools_impl,
-    attrs = {
-        "tools": attrs.dict(attrs.string(), attrs.dep(providers = [RunInfo])),
-    },
-)
-
 def _m2_mesoplanet_compile_impl(ctx: AnalysisContext) -> list[Provider]:
     out = ctx.actions.declare_output(ctx.label.name)
 

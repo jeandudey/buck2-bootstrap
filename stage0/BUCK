@@ -28,7 +28,6 @@ load(
     "bootstrap_m1_program",
     "bootstrap_m2_mesoplanet_compile",
     "bootstrap_sha256_check",
-    "bootstrap_tools",
     "cpu_select",
     "stage0_path",
     "stage0_paths",
@@ -266,15 +265,16 @@ filegroup_strip_prefix(
 )
 
 # What M2-Mesoplanet looks for in PATH when it drives a compile.
-bootstrap_tools(
+filegroup(
     name = "m2_mesoplanet_tools",
-    tools = {
+    srcs = {
         "M1": ":m1_stage1",
         "M2-Planet": ":m2_stage1",
         "blood-elf": ":blood_elf_stage1",
         "catm": ":catm_stage0",
         "hex2": ":hex2_stage2",
     },
+    copy = False,
 )
 
 [
@@ -291,9 +291,9 @@ bootstrap_tools(
 ]
 
 # Everything stage0-posix ships, laid out the way its bin directory is.
-bootstrap_tools(
+filegroup(
     name = "bin",
-    tools = {
+    srcs = {
         "M1": ":m1_stage1",
         "M2-Mesoplanet": ":m2_mesoplanet_stage0",
         "M2-Planet": ":m2_stage1",
@@ -305,6 +305,7 @@ bootstrap_tools(
         source: ":" + name
         for name, source in MESCC_TOOLS_EXTRA.items()
     },
+    copy = False,
     visibility = ["PUBLIC"],
 )
 
