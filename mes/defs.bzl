@@ -18,16 +18,16 @@ def mes_cpu_select(x86, amd64, riscv64):
     Mes 0.27.1 has no aarch64 port at all, see COMPATIBLE_WITH.
     """
     return select({
-        "root//constraints:cpu[x86_32]": x86,
-        "root//constraints:cpu[x86_64]": amd64,
-        "root//constraints:cpu[riscv64]": riscv64,
+        "prelude//cpu/constraints:cpu[x86_32]": x86,
+        "prelude//cpu/constraints:cpu[x86_64]": amd64,
+        "prelude//cpu/constraints:cpu[riscv64]": riscv64,
     })
 
 # There is no aarch64 Mes, so on aarch64 ask for a CPU that platform cannot
 # have. That makes the targets incompatible, and buck2 skips them, rather than
 # failing to configure the selects above.
 COMPATIBLE_WITH = select({
-    "root//constraints:cpu[aarch64]": ["root//constraints:cpu[x86_64]"],
+    "prelude//cpu/constraints:cpu[arm64]": ["prelude//cpu/constraints:cpu[x86_64]"],
     "DEFAULT": [],
 })
 

@@ -60,7 +60,7 @@ bootstrap_hex_assemble(
 bootstrap_hex_assemble(
     name = "catm_stage0",
     assembler = select({
-        "root//constraints:cpu[aarch64]": ":hex1_stage0",
+        "prelude//cpu/constraints:cpu[arm64]": ":hex1_stage0",
         "DEFAULT": ":hex2_stage0",
     }),
     src = cpu_select(

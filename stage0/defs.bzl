@@ -4,10 +4,10 @@
 def cpu_select(aarch64, x86, amd64, riscv64):
     """Selects a per-CPU value for the four architectures stage0 supports."""
     return select({
-        "root//constraints:cpu[aarch64]": aarch64,
-        "root//constraints:cpu[x86_32]": x86,
-        "root//constraints:cpu[x86_64]": amd64,
-        "root//constraints:cpu[riscv64]": riscv64,
+        "prelude//cpu/constraints:cpu[arm64]": aarch64,
+        "prelude//cpu/constraints:cpu[x86_32]": x86,
+        "prelude//cpu/constraints:cpu[x86_64]": amd64,
+        "prelude//cpu/constraints:cpu[riscv64]": riscv64,
     })
 
 # Architecture directory names, as spelled by stage0-posix and by M2libc.

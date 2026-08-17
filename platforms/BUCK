@@ -7,10 +7,10 @@ load(
 )
 
 platform(
-    name = "linux-aarch64",
+    name = "linux-arm64",
     constraint_values = [
-        "root//constraints:os[linux]",
-        "root//constraints:cpu[aarch64]",
+        "prelude//os/constraints:os[linux]",
+        "prelude//cpu/constraints:cpu[arm64]",
     ],
     visibility = ["PUBLIC"],
 )
@@ -18,8 +18,8 @@ platform(
 platform(
     name = "linux-riscv64",
     constraint_values = [
-        "root//constraints:os[linux]",
-        "root//constraints:cpu[riscv64]",
+        "prelude//os/constraints:os[linux]",
+        "prelude//cpu/constraints:cpu[riscv64]",
     ],
     visibility = ["PUBLIC"],
 )
@@ -27,8 +27,8 @@ platform(
 platform(
     name = "linux-x86_32",
     constraint_values = [
-        "root//constraints:os[linux]",
-        "root//constraints:cpu[x86_32]",
+        "prelude//os/constraints:os[linux]",
+        "prelude//cpu/constraints:cpu[x86_32]",
     ],
     visibility = ["PUBLIC"],
 )
@@ -36,14 +36,14 @@ platform(
 platform(
     name = "linux-x86_64",
     constraint_values = [
-        "root//constraints:os[linux]",
-        "root//constraints:cpu[x86_64]",
+        "prelude//os/constraints:os[linux]",
+        "prelude//cpu/constraints:cpu[x86_64]",
     ],
     visibility = ["PUBLIC"],
 )
 
 execution_platforms(
     name = "default",
-    platform = ":linux-x86_64",
+    platform = "prelude//platforms:default",
     visibility = ["PUBLIC"],
 )
