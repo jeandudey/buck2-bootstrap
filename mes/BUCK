@@ -139,6 +139,14 @@ filegroup_strip_prefix(
     visibility = ["PUBLIC"],
 )
 
+# The Guile modules MesCC parses C with. Mes carries two NYACC files itself and
+# expects the rest on the load path.
+filegroup_strip_prefix(
+    name = "nyacc",
+    srcs = glob(["nyacc/module/**"]),
+    prefix = "nyacc/module/",
+)
+
 # configure.sh writes config.h into the build tree's include directory, which
 # is searched ahead of the one in the sources.
 filegroup(
@@ -163,7 +171,7 @@ mescc(
     script = ":mescc.scm",
     mes_prefix = ":mes_prefix",
     modules = ":modules",
-    nyacc = "//nyacc:modules",
+    nyacc = ":nyacc",
     includes = [
         ":config_include",
         ":include",
