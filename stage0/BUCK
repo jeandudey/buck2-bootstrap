@@ -81,8 +81,6 @@ hex_binary(
 
 hex2_binary(
     name = "m0_stage0",
-    assembler = ":hex2_stage0",
-    catm = ":catm_stage0",
     srcs = stage0_paths("{arch}/M0_{arch}.hex2"),
     elf_header = ELF_HEADER,
 )
@@ -109,8 +107,6 @@ bootstrap_m0_assemble(
 
 hex2_binary(
     name = "cc_stage0",
-    assembler = ":hex2_stage0",
-    catm = ":catm_stage0",
     srcs = [":cc_stage0_no_elf_header.hex2"],
     elf_header = ELF_HEADER,
 )
@@ -152,8 +148,6 @@ bootstrap_m0_assemble(
 
 hex2_binary(
     name = "m2_stage0",
-    assembler = ":hex2_stage0",
-    catm = ":catm_stage0",
     srcs = [":m2_stage0_no_elf_header.hex2"],
     elf_header = ELF_HEADER,
 )

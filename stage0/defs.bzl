@@ -765,8 +765,14 @@ def _hex2_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 hex2_binary = rule(
     impl = _hex2_binary_impl,
     attrs = {
-        "assembler": attrs.exec_dep(providers = [RunInfo]),
-        "catm": attrs.exec_dep(providers = [RunInfo]),
+        "assembler": attrs.exec_dep(
+            providers = [RunInfo],
+            default = "root//stage0:hex2_stage0",
+        ),
+        "catm": attrs.exec_dep(
+            providers = [RunInfo],
+            default = "root//stage0:catm_stage0",
+        ),
         "srcs": attrs.list(attrs.source()),
         "elf_header": attrs.list(attrs.source()),
     },
