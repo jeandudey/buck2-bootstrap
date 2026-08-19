@@ -21,26 +21,26 @@ load(
     "bootstrap_cc_compile",
     "bootstrap_concat_file",
     "bootstrap_hex_assemble",
-    "bootstrap_hex_prebuilt",
     "bootstrap_hex2_image",
     "bootstrap_m0_assemble",
     "bootstrap_m0_program",
     "bootstrap_m1_program",
     "bootstrap_m2_mesoplanet_compile",
+    "bootstrap_seed",
     "bootstrap_sha256_check",
     "cpu_select",
     "stage0_path",
     "stage0_paths",
 )
 
-bootstrap_hex_prebuilt(
-    name = "hex0_prebuilt",
-    hex = stage0_path("bootstrap-seeds/POSIX/{arch}/hex0-seed"),
+bootstrap_seed(
+    name = "hex0_seed",
+    src = stage0_path("bootstrap-seeds/POSIX/{arch}/hex0-seed"),
 )
 
 bootstrap_hex_assemble(
     name = "hex0_stage0",
-    assembler = ":hex0_prebuilt",
+    assembler = ":hex0_seed",
     src = stage0_path("bootstrap-seeds/POSIX/{arch}/hex0_{arch}.hex0"),
 )
 

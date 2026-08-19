@@ -277,16 +277,18 @@ MESCC_TOOLS_EXTRA = {
     "wrap_stage0": "wrap",
 }
 
-def _hex_prebuilt_impl(ctx: AnalysisContext) -> list[Provider]:
+def _seed_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
-        DefaultInfo(default_output = ctx.attrs.hex),
-        RunInfo(args = cmd_args(ctx.attrs.hex)),
+        DefaultInfo(default_output = ctx.attrs.src),
+        RunInfo(args = cmd_args(ctx.attrs.src)),
     ]
 
-bootstrap_hex_prebuilt = rule(
-    impl = _hex_prebuilt_impl,
+# The one program the bootstrap runs without having built it, and so the one
+# thing here that has to be taken on trust.
+bootstrap_seed = rule(
+    impl = _seed_impl,
     attrs = {
-        "hex": attrs.source(),
+        "src": attrs.source(),
     },
 )
 
