@@ -11,7 +11,6 @@ load(
     "bootstrap_tree_file",
     "bootstrap_ungz",
     "bootstrap_untar",
-    "bootstrap_write_file",
 )
 load(
     "//mes:defs.bzl",
@@ -68,8 +67,9 @@ bootstrap_untar(
     visibility = ["PUBLIC"],
 )
 
-bootstrap_write_file(
+write_file(
     name = "config.h",
+    out = "config.h",
     content = CONFIG_H,
 )
 

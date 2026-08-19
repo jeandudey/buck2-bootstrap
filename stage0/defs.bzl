@@ -733,18 +733,6 @@ bootstrap_tree_file = rule(
     },
 )
 
-def _write_file_impl(ctx: AnalysisContext) -> list[Provider]:
-    out = ctx.actions.write(ctx.attrs.out or ctx.label.name, ctx.attrs.content)
-    return [DefaultInfo(default_output = out)]
-
-bootstrap_write_file = rule(
-    impl = _write_file_impl,
-    attrs = {
-        "content": attrs.list(attrs.string()),
-        "out": attrs.option(attrs.string(), default = None),
-    },
-)
-
 def bootstrap_hex2_image(name, catm, hex, srcs, elf_header = M2LIBC_ELF_HEADER):
     """Prepends an ELF header to srcs and assembles the result into a binary.
 

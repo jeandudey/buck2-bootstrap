@@ -22,7 +22,6 @@ TCC_SHA256 = "f4f6ce121ac631a234af080753fb9d645d2334d20160b37abbe75b574a1e1d19"
 CONFIG_H = [
     "/* What ./configure would generate, which the bootstrap does not run. */",
     "#define TCC_VERSION \"0.9.27\"",
-    "",
 ]
 
 # Where the tcc being built is told it will live. Nothing installs it there: the
