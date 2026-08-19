@@ -32,8 +32,8 @@ load(
     "stage0_paths",
 )
 
-# The architecture directory name, as spelled by stage0-posix.
-STAGE0_ARCHS = select({
+# The architecture, as stage0-posix spells it in directory and file names.
+STAGE0_ARCH = select({
     "prelude//cpu/constraints:cpu[arm64]": "AArch64",
     "prelude//cpu/constraints:cpu[x86_32]": "x86",
     "prelude//cpu/constraints:cpu[x86_64]": "AMD64",
@@ -42,25 +42,25 @@ STAGE0_ARCHS = select({
 
 bootstrap_seed(
     name = "hex0_seed",
-    src = selects.apply(STAGE0_ARCHS, lambda arch: "src/bootstrap-seeds/POSIX/{}/hex0-seed".format(arch)),
+    src = selects.apply(STAGE0_ARCH, lambda arch: "src/bootstrap-seeds/POSIX/{}/hex0-seed".format(arch)),
 )
 
 hex_binary(
     name = "hex0_stage0",
     assembler = ":hex0_seed",
-    src = selects.apply(STAGE0_ARCHS, lambda arch: "src/bootstrap-seeds/POSIX/{0}/hex0_{0}.hex0".format(arch)),
+    src = selects.apply(STAGE0_ARCH, lambda arch: "src/bootstrap-seeds/POSIX/{0}/hex0_{0}.hex0".format(arch)),
 )
 
 hex_binary(
     name = "hex1_stage0",
     assembler = ":hex0_stage0",
-    src = selects.apply(STAGE0_ARCHS, lambda arch: "src/{0}/hex1_{0}.hex0".format(arch)),
+    src = selects.apply(STAGE0_ARCH, lambda arch: "src/{0}/hex1_{0}.hex0".format(arch)),
 )
 
 hex_binary(
     name = "hex2_stage0",
     assembler = ":hex1_stage0",
-    src = selects.apply(STAGE0_ARCHS, lambda arch: "src/{0}/hex2_{0}.hex1".format(arch)),
+    src = selects.apply(STAGE0_ARCH, lambda arch: "src/{0}/hex2_{0}.hex1".format(arch)),
 )
 
 hex_binary(
@@ -69,12 +69,10 @@ hex_binary(
         "prelude//cpu/constraints:cpu[arm64]": ":hex1_stage0",
         "DEFAULT": ":hex2_stage0",
     }),
-    src = select({
-        "prelude//cpu/constraints:cpu[arm64]": "src/AArch64/catm_AArch64.hex1",
-        "prelude//cpu/constraints:cpu[x86_32]": "src/x86/catm_x86.hex2",
-        "prelude//cpu/constraints:cpu[x86_64]": "src/AMD64/catm_AMD64.hex2",
-        "prelude//cpu/constraints:cpu[riscv64]": "src/riscv64/catm_riscv64.hex2",
-    }),
+    src = selects.apply(STAGE0_ARCH, lambda arch: "src/{0}/catm_{0}.{1}".format(
+        arch,
+        "hex1" if arch == "AArch64" else "hex2",
+    )),
 )
 
 bootstrap_hex2_image(
