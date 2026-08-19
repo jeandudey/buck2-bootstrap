@@ -825,53 +825,107 @@ def bootstrap_m0_program(
         elf_header = M2LIBC_ELF_HEADER_DEBUG if debug else M2LIBC_ELF_HEADER,
     )
 
-def bootstrap_m1_program(
-        name,
-        compiler,
-        assembler,
-        blood_elf,
-        srcs,
-        catm = None,
-        hex = None,
-        linker = None,
-        visibility = None):
-    """M2-Planet program assembled by M1 and turned into a binary.
+def _m1_binary_impl(ctx: AnalysisContext) -> list[Provider]:
+    if (ctx.attrs.linker == None) == (ctx.attrs.hex == None):
+        fail("m1_binary needs exactly one of \"linker\" or \"hex\"")
 
-    "assembler" is an M1. The binary comes either from "linker", a hex2 able to
-    link, or from "hex" plus "catm" while hex2 is still assemble-only.
-    """
-    if (linker == None) == (hex == None):
-        fail("bootstrap_m1_program needs exactly one of \"linker\" or \"hex\"")
-
-    parts = bootstrap_m2_object(
-        name = name,
-        compiler = compiler,
-        srcs = srcs,
-        blood_elf = blood_elf,
-        debug = True,
+    obj = ctx.actions.declare_output("object.m1")
+    cmd = cmd_args(
+        ctx.attrs.compiler[RunInfo],
+        "--architecture",
+        ctx.attrs.architecture,
     )
-    obj = name + ".hex2" if linker != None else name + "_no_elf_header.hex2"
-    bootstrap_m1_assemble(
-        name = obj,
-        assembler = assembler,
-        architecture = M2_ARCHITECTURE,
-        srcs = M2LIBC_DEFS_LIBC_FULL + parts,
+    for src in ctx.attrs.srcs:
+        cmd.add("-f", src)
+    cmd.add("--debug", "-o", obj.as_output())
+    ctx.actions.run(cmd, category = "bootstrap_m2", identifier = ctx.label.name)
+
+    # The symbol table the debug ELF header expects, built from what M2-Planet
+    # emitted rather than from the sources.
+    footer = ctx.actions.declare_output("footer.m1")
+    ctx.actions.run(
+        cmd_args(
+            ctx.attrs.blood_elf[RunInfo],
+            ["--64"] if ctx.attrs.word_size == "64" else [],
+            ctx.attrs.endianness,
+            "-f",
+            obj,
+            "-o",
+            footer.as_output(),
+        ),
+        category = "bootstrap_blood_elf",
+        identifier = ctx.label.name,
     )
 
-    if linker != None:
-        bootstrap_hex2_link(
-            name = name,
-            linker = linker,
-            architecture = M2_ARCHITECTURE,
-            base_address = BASE_ADDRESS,
-            srcs = M2LIBC_ELF_HEADER_DEBUG + [":" + obj],
-            visibility = visibility,
+    assembled = ctx.actions.declare_output("program.hex2")
+    cmd = cmd_args(
+        ctx.attrs.assembler[RunInfo],
+        "--architecture",
+        ctx.attrs.architecture,
+        ctx.attrs.endianness,
+    )
+    for src in ctx.attrs.defs_libc:
+        cmd.add("-f", src)
+    cmd.add("-f", obj, "-f", footer, "-o", assembled.as_output())
+    ctx.actions.run(cmd, category = "bootstrap_m1", identifier = ctx.label.name)
+
+    out = ctx.actions.declare_output(ctx.label.name)
+    if ctx.attrs.linker != None:
+        cmd = cmd_args(
+            ctx.attrs.linker[RunInfo],
+            "--architecture",
+            ctx.attrs.architecture,
+            ctx.attrs.endianness,
+            "--base-address",
+            ctx.attrs.base_address,
         )
+        for src in ctx.attrs.elf_header:
+            cmd.add("-f", src)
+        cmd.add("-f", assembled, "-o", out.as_output())
+        ctx.actions.run(cmd, category = "bootstrap_hex2", identifier = ctx.label.name)
     else:
-        bootstrap_hex2_image(
-            name = name,
-            catm = catm,
-            hex = hex,
-            srcs = [":" + obj],
-            elf_header = M2LIBC_ELF_HEADER_DEBUG,
+        # A hex2 that cannot link yet, so the ELF header is prepended by hand
+        # and the whole thing assembled in one go.
+        image = ctx.actions.declare_output("image.hex2")
+        ctx.actions.run(
+            cmd_args(
+                ctx.attrs.catm[RunInfo],
+                image.as_output(),
+                ctx.attrs.elf_header,
+                assembled,
+            ),
+            category = "bootstrap_catm",
+            identifier = ctx.label.name,
         )
+        ctx.actions.run(
+            cmd_args(ctx.attrs.hex[RunInfo], image, out.as_output()),
+            category = "bootstrap_hex",
+            identifier = ctx.label.name,
+        )
+
+    return [
+        DefaultInfo(default_output = out),
+        RunInfo(args = cmd_args(out)),
+    ]
+
+# An M2-Planet program assembled by M1 and turned into a binary. The binary
+# comes either from "linker", a hex2 able to link, or from "hex" plus "catm"
+# while hex2 is still assemble-only.
+m1_binary = rule(
+    impl = _m1_binary_impl,
+    attrs = {
+        "compiler": attrs.exec_dep(providers = [RunInfo]),
+        "assembler": attrs.exec_dep(providers = [RunInfo]),
+        "blood_elf": attrs.exec_dep(providers = [RunInfo]),
+        "srcs": attrs.list(attrs.source()),
+        "linker": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+        "hex": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+        "catm": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+        "architecture": attrs.string(default = M2_ARCHITECTURE),
+        "base_address": attrs.string(default = BASE_ADDRESS),
+        "word_size": attrs.enum(["32", "64"], default = WORD_SIZE),
+        "defs_libc": attrs.list(attrs.source()),
+        "elf_header": attrs.list(attrs.source()),
+        "endianness": attrs.string(default = "--little-endian"),
+    },
+)
