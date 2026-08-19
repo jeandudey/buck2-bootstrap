@@ -292,7 +292,7 @@ bootstrap_seed = rule(
     },
 )
 
-def _hex_assemble_impl(ctx: AnalysisContext) -> list[Provider]:
+def _hex_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     out = ctx.actions.declare_output(ctx.label.name)
     ctx.actions.run(
         cmd_args(ctx.attrs.assembler[RunInfo], ctx.attrs.src, out.as_output()),
@@ -304,8 +304,8 @@ def _hex_assemble_impl(ctx: AnalysisContext) -> list[Provider]:
         RunInfo(args = cmd_args(out)),
     ]
 
-bootstrap_hex_assemble = rule(
-    impl = _hex_assemble_impl,
+hex_binary = rule(
+    impl = _hex_binary_impl,
     attrs = {
         "assembler": attrs.exec_dep(providers = [RunInfo]),
         "src": attrs.source(),
@@ -746,7 +746,7 @@ def bootstrap_hex2_image(name, catm, hex, srcs, elf_header = M2LIBC_ELF_HEADER):
         catm = catm,
         srcs = elf_header + srcs,
     )
-    bootstrap_hex_assemble(
+    hex_binary(
         name = name,
         assembler = hex,
         src = ":" + name + ".hex2",
