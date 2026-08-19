@@ -460,6 +460,7 @@ bootstrap_hex2_link = rule(
 
 def _blood_elf_impl(ctx: AnalysisContext) -> list[Provider]:
     out = ctx.actions.declare_output(ctx.attrs.out or ctx.label.name)
+
     # blood-elf assumes 32-bit and rejects a --32 it doesn't know about.
     word_size = ["--64"] if ctx.attrs.word_size == "64" else []
     ctx.actions.run(
@@ -467,8 +468,10 @@ def _blood_elf_impl(ctx: AnalysisContext) -> list[Provider]:
             ctx.attrs.blood_elf[RunInfo],
             word_size,
             ctx.attrs.endianness,
-            "-f", ctx.attrs.src,
-            "-o", out.as_output(),
+            "-f",
+            ctx.attrs.src,
+            "-o",
+            out.as_output(),
         ),
         category = "bootstrap_blood_elf",
         identifier = ctx.label.name,

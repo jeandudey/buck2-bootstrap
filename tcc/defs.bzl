@@ -115,8 +115,7 @@ MESCC_FIXES = {
 # the symbol, which is what the i386 code generator does for every static link
 # and why nothing is wrong there.
 LINKER_FIXES = {
-    "(ELFW(ST_VISIBILITY)(sym->st_other) != STV_DEFAULT ||":
-        "(s1->static_link || ELFW(ST_VISIBILITY)(sym->st_other) != STV_DEFAULT ||",
+    "(ELFW(ST_VISIBILITY)(sym->st_other) != STV_DEFAULT ||": "(s1->static_link || ELFW(ST_VISIBILITY)(sym->st_other) != STV_DEFAULT ||",
 }
 
 # Neither of the two is wanted anywhere but on amd64, and x86 is the CPU whose
