@@ -618,28 +618,6 @@ bootstrap_sha256_check = rule(
     },
 )
 
-def _http_file_impl(ctx: AnalysisContext) -> list[Provider]:
-    out = ctx.actions.declare_output(ctx.attrs.out or ctx.label.name)
-
-    # The hash is what makes a download part of the bootstrap rather than a hole
-    # in it, so there is no way to ask for one without it.
-    ctx.actions.download_file(
-        out,
-        ctx.attrs.urls[0],
-        vpnless_url = ctx.attrs.urls[1] if len(ctx.attrs.urls) > 1 else None,
-        sha256 = ctx.attrs.sha256,
-    )
-    return [DefaultInfo(default_output = out)]
-
-bootstrap_http_file = rule(
-    impl = _http_file_impl,
-    attrs = {
-        "urls": attrs.list(attrs.string()),
-        "sha256": attrs.string(),
-        "out": attrs.option(attrs.string(), default = None),
-    },
-)
-
 def _ungz_impl(ctx: AnalysisContext) -> list[Provider]:
     out = ctx.actions.declare_output(ctx.attrs.out or ctx.label.name)
     ctx.actions.run(

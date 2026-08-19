@@ -5,7 +5,6 @@ load(
     "//stage0:defs.bzl",
     "bootstrap_blood_elf",
     "bootstrap_concat_file",
-    "bootstrap_http_file",
     "bootstrap_hex2_link",
     "bootstrap_m1_assemble",
     "bootstrap_subst",
@@ -45,9 +44,11 @@ load(
 )
 
 # Janneke's tcc, which carries the Mes patches, rather than upstream 0.9.26.
-bootstrap_http_file(
+http_file(
     name = "tcc.tar.gz",
     urls = TCC_URLS,
+    # The hash is what makes a download part of the bootstrap rather than a hole
+    # in it.
     sha256 = TCC_SHA256,
 )
 
