@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Jean-Pierre De Jesus DIAZ <me@jeandudey.tech>
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
+load("@prelude//:artifacts.bzl", "ArtifactGroupInfo")
+
 def cpu_select(aarch64, x86, amd64, riscv64):
     """Selects a per-CPU value for the four architectures stage0 supports."""
     return select({
@@ -742,7 +744,7 @@ def _hex2_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         cmd_args(
             ctx.attrs.catm[RunInfo],
             image.as_output(),
-            ctx.attrs.elf_header,
+            ctx.attrs.elf_header[ArtifactGroupInfo].artifacts,
             ctx.attrs.srcs,
         ),
         category = "bootstrap_catm",
@@ -774,7 +776,10 @@ hex2_binary = rule(
             default = "root//stage0:catm_stage0",
         ),
         "srcs": attrs.list(attrs.source()),
-        "elf_header": attrs.list(attrs.source()),
+        "elf_header": attrs.dep(
+            providers = [ArtifactGroupInfo],
+            default = "root//stage0:elf_header",
+        ),
     },
 )
 
