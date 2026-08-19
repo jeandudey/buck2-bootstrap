@@ -816,7 +816,7 @@ def _m0_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         cmd_args(
             ctx.attrs.catm[RunInfo],
             assembly.as_output(),
-            ctx.attrs.defs_libc,
+            ctx.attrs.defs_libc[ArtifactGroupInfo].artifacts,
             parts,
         ),
         category = "bootstrap_catm",
@@ -837,7 +837,7 @@ def _m0_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         cmd_args(
             ctx.attrs.catm[RunInfo],
             image.as_output(),
-            ctx.attrs.elf_header,
+            ctx.attrs.elf_header[ArtifactGroupInfo].artifacts,
             assembled,
         ),
         category = "bootstrap_catm_image",
@@ -867,8 +867,14 @@ m0_binary = rule(
         "hex": attrs.exec_dep(providers = [RunInfo]),
         "blood_elf": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
         "srcs": attrs.list(attrs.source()),
-        "defs_libc": attrs.list(attrs.source()),
-        "elf_header": attrs.list(attrs.source()),
+        "defs_libc": attrs.dep(
+            providers = [ArtifactGroupInfo],
+            default = "root//stage0:m2libc_defs_libc",
+        ),
+        "elf_header": attrs.dep(
+            providers = [ArtifactGroupInfo],
+            default = "root//stage0:m2libc_elf_header",
+        ),
         "architecture": attrs.string(default = M2_ARCHITECTURE),
         "word_size": attrs.enum(["32", "64"], default = WORD_SIZE),
         "bootstrap_mode": attrs.bool(default = False),
@@ -916,7 +922,7 @@ def _m1_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx.attrs.architecture,
         ctx.attrs.endianness,
     )
-    for src in ctx.attrs.defs_libc:
+    for src in ctx.attrs.defs_libc[ArtifactGroupInfo].artifacts:
         cmd.add("-f", src)
     cmd.add("-f", obj, "-f", footer, "-o", assembled.as_output())
     ctx.actions.run(cmd, category = "bootstrap_m1", identifier = ctx.label.name)
@@ -931,7 +937,7 @@ def _m1_binary_impl(ctx: AnalysisContext) -> list[Provider]:
             "--base-address",
             ctx.attrs.base_address,
         )
-        for src in ctx.attrs.elf_header:
+        for src in ctx.attrs.elf_header[ArtifactGroupInfo].artifacts:
             cmd.add("-f", src)
         cmd.add("-f", assembled, "-o", out.as_output())
         ctx.actions.run(cmd, category = "bootstrap_hex2", identifier = ctx.label.name)
@@ -943,7 +949,7 @@ def _m1_binary_impl(ctx: AnalysisContext) -> list[Provider]:
             cmd_args(
                 ctx.attrs.catm[RunInfo],
                 image.as_output(),
-                ctx.attrs.elf_header,
+                ctx.attrs.elf_header[ArtifactGroupInfo].artifacts,
                 assembled,
             ),
             category = "bootstrap_catm",
@@ -976,8 +982,14 @@ m1_binary = rule(
         "architecture": attrs.string(default = M2_ARCHITECTURE),
         "base_address": attrs.string(default = BASE_ADDRESS),
         "word_size": attrs.enum(["32", "64"], default = WORD_SIZE),
-        "defs_libc": attrs.list(attrs.source()),
-        "elf_header": attrs.list(attrs.source()),
+        "defs_libc": attrs.dep(
+            providers = [ArtifactGroupInfo],
+            default = "root//stage0:m2libc_defs_libc_full",
+        ),
+        "elf_header": attrs.dep(
+            providers = [ArtifactGroupInfo],
+            default = "root//stage0:m2libc_elf_header_debug",
+        ),
         "endianness": attrs.string(default = "--little-endian"),
     },
 )
