@@ -100,14 +100,6 @@ BASE_ADDRESS = cpu_select(
     riscv64 = "0x00600000",
 )
 
-# ELF headers shipped by stage0-posix itself, used until M2libc is reachable.
-ELF_HEADER = cpu_select(
-    aarch64 = ["src/AArch64/ELF-aarch64.hex2"],
-    x86 = ["src/x86/ELF-i386.hex2"],
-    amd64 = ["src/AMD64/ELF-amd64.hex2"],
-    riscv64 = ["src/riscv64/ELF-riscv64.hex2"],
-)
-
 # Architecture definitions and libc that stage0-posix carries itself, used by
 # the M1 sources it ships before M2libc is reachable.
 STAGE0_DEFS_LIBC = cpu_select(
