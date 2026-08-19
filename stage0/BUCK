@@ -28,7 +28,6 @@ load(
     "bootstrap_m2_mesoplanet_compile",
     "bootstrap_seed",
     "bootstrap_sha256_check",
-    "cpu_select",
     "hex_binary",
     "stage0_paths",
 )
@@ -70,12 +69,12 @@ hex_binary(
         "prelude//cpu/constraints:cpu[arm64]": ":hex1_stage0",
         "DEFAULT": ":hex2_stage0",
     }),
-    src = cpu_select(
-        aarch64 = "src/AArch64/catm_AArch64.hex1",
-        x86 = "src/x86/catm_x86.hex2",
-        amd64 = "src/AMD64/catm_AMD64.hex2",
-        riscv64 = "src/riscv64/catm_riscv64.hex2",
-    ),
+    src = select({
+        "prelude//cpu/constraints:cpu[arm64]": "src/AArch64/catm_AArch64.hex1",
+        "prelude//cpu/constraints:cpu[x86_32]": "src/x86/catm_x86.hex2",
+        "prelude//cpu/constraints:cpu[x86_64]": "src/AMD64/catm_AMD64.hex2",
+        "prelude//cpu/constraints:cpu[riscv64]": "src/riscv64/catm_riscv64.hex2",
+    }),
 )
 
 bootstrap_hex2_image(
@@ -98,12 +97,12 @@ bootstrap_concat_file(
 bootstrap_m0_assemble(
     name = "cc_stage0_no_elf_header.hex2",
     assembler = ":m0_stage0",
-    src = cpu_select(
-        aarch64 = "src/AArch64/cc_aarch64.M1",
-        x86 = "src/x86/cc_x86.M1",
-        amd64 = "src/AMD64/cc_amd64.M1",
-        riscv64 = ":cc_stage0_riscv64.m1",
-    ),
+    src = select({
+        "prelude//cpu/constraints:cpu[arm64]": "src/AArch64/cc_aarch64.M1",
+        "prelude//cpu/constraints:cpu[x86_32]": "src/x86/cc_x86.M1",
+        "prelude//cpu/constraints:cpu[x86_64]": "src/AMD64/cc_amd64.M1",
+        "prelude//cpu/constraints:cpu[riscv64]": ":cc_stage0_riscv64.m1",
+    }),
 )
 
 bootstrap_hex2_image(
