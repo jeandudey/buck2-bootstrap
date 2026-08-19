@@ -755,17 +755,6 @@ bootstrap_tree_file = rule(
     },
 )
 
-def _file_impl(ctx: AnalysisContext) -> list[Provider]:
-    return [DefaultInfo(default_output = ctx.attrs.src)]
-
-# A source another package has to be able to name.
-bootstrap_file = rule(
-    impl = _file_impl,
-    attrs = {
-        "src": attrs.source(),
-    },
-)
-
 def _write_file_impl(ctx: AnalysisContext) -> list[Provider]:
     out = ctx.actions.write(ctx.attrs.out or ctx.label.name, ctx.attrs.content)
     return [DefaultInfo(default_output = out)]

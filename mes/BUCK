@@ -5,7 +5,6 @@ load(
     "//stage0:defs.bzl",
     "bootstrap_blood_elf",
     "bootstrap_concat_file",
-    "bootstrap_file",
     "bootstrap_hex2_link",
     "bootstrap_m1_assemble",
     "bootstrap_m2_compile",
@@ -50,23 +49,26 @@ load(
 
 # The per-CPU pieces of a MesCC link, as targets, so that packages other than
 # this one can name them.
-bootstrap_file(
+export_file(
     name = "arch.M1",
     src = ARCH_M1_SRC,
+    mode = "reference",
     target_compatible_with = COMPATIBLE_WITH,
     visibility = ["PUBLIC"],
 )
 
-bootstrap_file(
+export_file(
     name = "elf-header.hex2",
     src = ELF_LINK_HEADER_SRC,
+    mode = "reference",
     target_compatible_with = COMPATIBLE_WITH,
     visibility = ["PUBLIC"],
 )
 
-bootstrap_file(
+export_file(
     name = "elf-footer.hex2",
     src = ELF_LINK_FOOTER_SRC,
+    mode = "reference",
     target_compatible_with = COMPATIBLE_WITH,
     visibility = ["PUBLIC"],
 )
@@ -260,38 +262,43 @@ bootstrap_concat_file(
     visibility = ["PUBLIC"],
 )
 
-bootstrap_file(
+export_file(
     name = "crt1.c",
     src = CRT1_C,
+    mode = "reference",
     target_compatible_with = COMPATIBLE_WITH,
     visibility = ["PUBLIC"],
 )
 
-bootstrap_file(
+export_file(
     name = "crti.c",
     src = CRTI_C,
+    mode = "reference",
     target_compatible_with = COMPATIBLE_WITH,
     visibility = ["PUBLIC"],
 )
 
-bootstrap_file(
+export_file(
     name = "crtn.c",
     src = CRTN_C,
+    mode = "reference",
     target_compatible_with = COMPATIBLE_WITH,
     visibility = ["PUBLIC"],
 )
 
 # The compiler support routines tcc calls for what its code generator does not
 # emit inline, and getopt, which Mes keeps out of the C library proper.
-bootstrap_file(
+export_file(
     name = "libtcc1.c",
     src = "src/lib/libtcc1.c",
+    mode = "reference",
     visibility = ["PUBLIC"],
 )
 
-bootstrap_file(
+export_file(
     name = "libgetopt.c",
     src = "src/lib/posix/getopt.c",
+    mode = "reference",
     visibility = ["PUBLIC"],
 )
 
