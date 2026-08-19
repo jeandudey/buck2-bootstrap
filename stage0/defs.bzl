@@ -734,22 +734,43 @@ bootstrap_tree_file = rule(
     },
 )
 
-def bootstrap_hex2_image(name, catm, hex, srcs, elf_header = M2LIBC_ELF_HEADER):
-    """Prepends an ELF header to srcs and assembles the result into a binary.
+def _hex2_binary_impl(ctx: AnalysisContext) -> list[Provider]:
+    # An ELF header prepended by hand, for the stage where hex2 can assemble
+    # but not yet link.
+    image = ctx.actions.declare_output("image.hex2")
+    ctx.actions.run(
+        cmd_args(
+            ctx.attrs.catm[RunInfo],
+            image.as_output(),
+            ctx.attrs.elf_header,
+            ctx.attrs.srcs,
+        ),
+        category = "bootstrap_catm",
+        identifier = ctx.label.name,
+    )
 
-    Defines ":<name>.hex2" with the concatenated hex2 and ":<name>" with the
-    assembled binary.
-    """
-    bootstrap_concat_file(
-        name = name + ".hex2",
-        catm = catm,
-        srcs = elf_header + srcs,
+    out = ctx.actions.declare_output(ctx.label.name)
+    ctx.actions.run(
+        cmd_args(ctx.attrs.assembler[RunInfo], image, out.as_output()),
+        category = "bootstrap_hex",
+        identifier = ctx.label.name,
     )
-    hex_binary(
-        name = name,
-        assembler = hex,
-        src = ":" + name + ".hex2",
-    )
+
+    return [
+        DefaultInfo(default_output = out),
+        RunInfo(args = cmd_args(out)),
+    ]
+
+# A binary assembled from hex2 sources, with an ELF header in front of them.
+hex2_binary = rule(
+    impl = _hex2_binary_impl,
+    attrs = {
+        "assembler": attrs.exec_dep(providers = [RunInfo]),
+        "catm": attrs.exec_dep(providers = [RunInfo]),
+        "srcs": attrs.list(attrs.source()),
+        "elf_header": attrs.list(attrs.source()),
+    },
+)
 
 def _m0_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     obj = ctx.actions.declare_output("object.m1")
