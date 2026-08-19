@@ -15,7 +15,9 @@ load(
     "KAEM_SOURCES",
     "M1_SOURCES",
     "M2_ARCHITECTURE",
+    "M2LIBC_DEFS_LIBC",
     "M2LIBC_DEFS_LIBC_FULL",
+    "M2LIBC_ELF_HEADER",
     "M2LIBC_ELF_HEADER_DEBUG",
     "M2_MESOPLANET_SOURCES",
     "M2_PLANET_SOURCES",
@@ -25,11 +27,11 @@ load(
     "bootstrap_concat_file",
     "bootstrap_hex2_image",
     "bootstrap_m0_assemble",
-    "bootstrap_m0_program",
     "bootstrap_m2_mesoplanet_compile",
     "bootstrap_seed",
     "bootstrap_sha256_check",
     "hex_binary",
+    "m0_binary",
     "m1_binary",
     "stage0_paths",
 )
@@ -156,12 +158,14 @@ bootstrap_hex2_image(
     elf_header = ELF_HEADER,
 )
 
-bootstrap_m0_program(
+m0_binary(
     name = "blood_elf_stage0",
     compiler = ":m2_stage0",
     assembler = ":m0_stage0",
     catm = ":catm_stage0",
     hex = ":hex2_stage0",
+    defs_libc = M2LIBC_DEFS_LIBC,
+    elf_header = M2LIBC_ELF_HEADER,
     bootstrap_mode = True,
     srcs = BOOTSTRAP_C + [
         "src/M2libc/bootstrappable.c",
@@ -170,13 +174,15 @@ bootstrap_m0_program(
     ],
 )
 
-bootstrap_m0_program(
+m0_binary(
     name = "m1_stage0",
     compiler = ":m2_stage0",
     assembler = ":m0_stage0",
     catm = ":catm_stage0",
     hex = ":hex2_stage0",
     blood_elf = ":blood_elf_stage0",
+    defs_libc = M2LIBC_DEFS_LIBC,
+    elf_header = M2LIBC_ELF_HEADER_DEBUG,
     bootstrap_mode = True,
     debug = True,
     srcs = BOOTSTRAP_C + [

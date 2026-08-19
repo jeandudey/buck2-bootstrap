@@ -751,79 +751,107 @@ def bootstrap_hex2_image(name, catm, hex, srcs, elf_header = M2LIBC_ELF_HEADER):
         src = ":" + name + ".hex2",
     )
 
-def bootstrap_m2_object(
-        name,
-        compiler,
-        srcs,
-        blood_elf = None,
-        bootstrap_mode = False,
-        debug = False):
-    """Compiles srcs with M2-Planet, optionally emitting a debug footer.
-
-    Returns the M1 parts to hand to an assembler, in link order.
-    """
-    obj = name + "_no_defs_no_libc.m1"
-    bootstrap_m2_compile(
-        name = obj,
-        compiler = compiler,
-        architecture = M2_ARCHITECTURE,
-        bootstrap_mode = bootstrap_mode,
-        debug = debug,
-        srcs = srcs,
+def _m0_binary_impl(ctx: AnalysisContext) -> list[Provider]:
+    obj = ctx.actions.declare_output("object.m1")
+    cmd = cmd_args(
+        ctx.attrs.compiler[RunInfo],
+        "--architecture",
+        ctx.attrs.architecture,
     )
-    parts = [":" + obj]
+    for src in ctx.attrs.srcs:
+        cmd.add("-f", src)
+    if ctx.attrs.bootstrap_mode:
+        cmd.add("--bootstrap-mode")
+    if ctx.attrs.debug:
+        cmd.add("--debug")
+    cmd.add("-o", obj.as_output())
+    ctx.actions.run(cmd, category = "bootstrap_m2", identifier = ctx.label.name)
 
-    if blood_elf != None:
-        footer = name + "_footer.m1"
-        bootstrap_blood_elf(
-            name = footer,
-            blood_elf = blood_elf,
-            word_size = WORD_SIZE,
-            src = ":" + obj,
+    parts = [obj]
+    if ctx.attrs.blood_elf != None:
+        footer = ctx.actions.declare_output("footer.m1")
+        ctx.actions.run(
+            cmd_args(
+                ctx.attrs.blood_elf[RunInfo],
+                ["--64"] if ctx.attrs.word_size == "64" else [],
+                ctx.attrs.endianness,
+                "-f",
+                obj,
+                "-o",
+                footer.as_output(),
+            ),
+            category = "bootstrap_blood_elf",
+            identifier = ctx.label.name,
         )
-        parts.append(":" + footer)
+        parts.append(footer)
 
-    return parts
+    # M0 takes one file, so what M1 would have been given as several arguments
+    # is concatenated first.
+    assembly = ctx.actions.declare_output("program.m1")
+    ctx.actions.run(
+        cmd_args(
+            ctx.attrs.catm[RunInfo],
+            assembly.as_output(),
+            ctx.attrs.defs_libc,
+            parts,
+        ),
+        category = "bootstrap_catm",
+        identifier = ctx.label.name,
+    )
 
-def bootstrap_m0_program(
-        name,
-        compiler,
-        assembler,
-        catm,
-        hex,
-        srcs,
-        blood_elf = None,
-        bootstrap_mode = False,
-        debug = False):
-    """M2-Planet program assembled by M0, for the stage before M1 exists.
+    assembled = ctx.actions.declare_output("program.hex2")
+    ctx.actions.run(
+        cmd_args(ctx.attrs.assembler[RunInfo], assembly, assembled.as_output()),
+        category = "bootstrap_m0",
+        identifier = ctx.label.name,
+    )
 
-    "assembler" is an M0, "hex" a hex2 assembler.
-    """
-    parts = bootstrap_m2_object(
-        name = name,
-        compiler = compiler,
-        srcs = srcs,
-        blood_elf = blood_elf,
-        bootstrap_mode = bootstrap_mode,
-        debug = debug,
+    # This hex2 cannot link, so the ELF header is prepended by hand and the
+    # whole thing assembled in one go.
+    image = ctx.actions.declare_output("image.hex2")
+    ctx.actions.run(
+        cmd_args(
+            ctx.attrs.catm[RunInfo],
+            image.as_output(),
+            ctx.attrs.elf_header,
+            assembled,
+        ),
+        category = "bootstrap_catm_image",
+        identifier = ctx.label.name,
     )
-    bootstrap_concat_file(
-        name = name + ".m1",
-        catm = catm,
-        srcs = M2LIBC_DEFS_LIBC + parts,
+
+    out = ctx.actions.declare_output(ctx.label.name)
+    ctx.actions.run(
+        cmd_args(ctx.attrs.hex[RunInfo], image, out.as_output()),
+        category = "bootstrap_hex",
+        identifier = ctx.label.name,
     )
-    bootstrap_m0_assemble(
-        name = name + "_no_elf_header.hex2",
-        assembler = assembler,
-        src = ":" + name + ".m1",
-    )
-    bootstrap_hex2_image(
-        name = name,
-        catm = catm,
-        hex = hex,
-        srcs = [":" + name + "_no_elf_header.hex2"],
-        elf_header = M2LIBC_ELF_HEADER_DEBUG if debug else M2LIBC_ELF_HEADER,
-    )
+
+    return [
+        DefaultInfo(default_output = out),
+        RunInfo(args = cmd_args(out)),
+    ]
+
+# An M2-Planet program assembled by M0, for the stage before M1 exists.
+# "assembler" is an M0, "hex" a hex2 that can assemble but not yet link.
+m0_binary = rule(
+    impl = _m0_binary_impl,
+    attrs = {
+        "compiler": attrs.exec_dep(providers = [RunInfo]),
+        "assembler": attrs.exec_dep(providers = [RunInfo]),
+        "catm": attrs.exec_dep(providers = [RunInfo]),
+        "hex": attrs.exec_dep(providers = [RunInfo]),
+        "blood_elf": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+        "srcs": attrs.list(attrs.source()),
+        "defs_libc": attrs.list(attrs.source()),
+        "elf_header": attrs.list(attrs.source()),
+        "architecture": attrs.string(default = M2_ARCHITECTURE),
+        "word_size": attrs.enum(["32", "64"], default = WORD_SIZE),
+        "bootstrap_mode": attrs.bool(default = False),
+        "debug": attrs.bool(default = False),
+        "endianness": attrs.string(default = "--little-endian"),
+    },
+)
 
 def _m1_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     if (ctx.attrs.linker == None) == (ctx.attrs.hex == None):
