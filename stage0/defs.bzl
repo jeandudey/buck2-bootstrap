@@ -30,12 +30,8 @@ def _paths(fmt, archs):
         riscv64 = [fmt.format(arch = archs[3])],
     )
 
-def stage0_path(fmt):
-    """Per-CPU source path, e.g. "{arch}/hex1_{arch}.hex0"."""
-    return _path("src/" + fmt, _STAGE0_ARCHS)
-
 def stage0_paths(fmt):
-    """Like stage0_path, as a single element list for "srcs" attributes."""
+    """Per-CPU source path, as a single element list for "srcs" attributes."""
     return _paths("src/" + fmt, _STAGE0_ARCHS)
 
 def _m2libc_paths(fmt):

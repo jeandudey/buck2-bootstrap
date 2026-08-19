@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Jean-Pierre De Jesus DIAZ <me@jeandudey.tech>
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 
+load("@prelude//utils:selects.bzl", "selects")
 load("//common:defs.bzl", "filegroup_strip_prefix")
 load(
     ":defs.bzl",
@@ -29,31 +30,38 @@ load(
     "bootstrap_sha256_check",
     "cpu_select",
     "hex_binary",
-    "stage0_path",
     "stage0_paths",
 )
 
+# The architecture directory name, as spelled by stage0-posix.
+STAGE0_ARCHS = select({
+    "prelude//cpu/constraints:cpu[arm64]": "AArch64",
+    "prelude//cpu/constraints:cpu[x86_32]": "x86",
+    "prelude//cpu/constraints:cpu[x86_64]": "AMD64",
+    "prelude//cpu/constraints:cpu[riscv64]": "riscv64",
+})
+
 bootstrap_seed(
     name = "hex0_seed",
-    src = stage0_path("bootstrap-seeds/POSIX/{arch}/hex0-seed"),
+    src = selects.apply(STAGE0_ARCHS, lambda arch: "src/bootstrap-seeds/POSIX/{}/hex0-seed".format(arch)),
 )
 
 hex_binary(
     name = "hex0_stage0",
     assembler = ":hex0_seed",
-    src = stage0_path("bootstrap-seeds/POSIX/{arch}/hex0_{arch}.hex0"),
+    src = selects.apply(STAGE0_ARCHS, lambda arch: "src/bootstrap-seeds/POSIX/{0}/hex0_{0}.hex0".format(arch)),
 )
 
 hex_binary(
     name = "hex1_stage0",
     assembler = ":hex0_stage0",
-    src = stage0_path("{arch}/hex1_{arch}.hex0"),
+    src = selects.apply(STAGE0_ARCHS, lambda arch: "src/{0}/hex1_{0}.hex0".format(arch)),
 )
 
 hex_binary(
     name = "hex2_stage0",
     assembler = ":hex1_stage0",
-    src = stage0_path("{arch}/hex2_{arch}.hex1"),
+    src = selects.apply(STAGE0_ARCHS, lambda arch: "src/{0}/hex2_{0}.hex1".format(arch)),
 )
 
 hex_binary(
